@@ -93,15 +93,14 @@ def test_random_cases(axes, angs, make_rmat_of_expmap_impl, module_name):
 # check that for some random inputs the resulting matrix is orthonormal
 
 @all_impls
-def test_orthonormal(make_rmat_of_expmap_impl, module_name):
-    rmat = make_rmat_of_expmap_impl(np.array([42.0, 3., 32.5]))
-    # dot(A, A.T) == IDENTITY is a good orthonormality check
-    assert_allclose(np.dot(rmat, rmat.T), xf_cnst.identity_3x3,
-                     atol=ATOL_IDENTITY)
-
-    rmat = make_rmat_of_expmap_impl(np.array([-32.0, 0.0, 17.6]))
-    assert_allclose(np.dot(rmat, rmat.T), xf_cnst.identity_3x3,
-                     atol=ATOL_IDENTITY)
+def test_orthonormal(axes, angs, make_rmat_of_expmap_impl, module_name):
+    for axis in axes:
+        for ang in angs:
+            expmap = convert_axis_angle_to_expmap(axis, ang)
+            rmat = make_rmat_of_expmap_impl(expmap)
+            # dot(A, A.T) == IDENTITY is a good orthonormality check
+            assert_allclose(np.dot(rmat, rmat.T), xf_cnst.identity_3x3,
+                            atol=ATOL_IDENTITY)
 
 
 
