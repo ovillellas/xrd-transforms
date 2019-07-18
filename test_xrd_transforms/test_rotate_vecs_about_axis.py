@@ -15,7 +15,7 @@ all_impls = pytest.mark.parametrize('rotate_vecs_about_axis_impl, module_name',
                                     [(xf_numpy.rotate_vecs_about_axis, 'numpy'),
                                      (xf_capi.rotate_vecs_about_axis, 'capi'),
                                      (xf_new_capi.rotate_vecs_about_axis, 'new_capi'),
-                                     #(xf_numba.angles_to_gvec, 'numba'),
+                                     #(xf_numba.rotate_vecs_about_axis, 'numba'),
                                      (xf.rotate_vecs_about_axis, 'default')]
                                 )
 

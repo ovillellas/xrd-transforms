@@ -36,11 +36,3 @@ def test_simple(angles_to_gvec_impl, module_name):
     res = angles_to_gvec_impl(np.atleast_2d(angs), bHat, eHat)
     np_testing.assert_almost_equal(res, np.atleast_2d(expected))
 
-
-@all_impls
-def test_sample1(angles_to_gvec_impl, module_name):
-    pass
-
-@all_impls
-def test_sample2(angles_to_gvec_impl, module_name):
-    pass

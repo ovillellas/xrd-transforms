@@ -32,10 +32,3 @@ def test_make_sample_rmat_chi0_ome0(make_sample_rmat_impl, module_name):
     np_assert_allclose(xf_cnst.identity_3x3, result)
 
 
-@all_impls
-def test_sample1(make_sample_rmat_impl, module_name):
-    pass
-
-@all_impls
-def test_sample2(make_sample_rmat_impl, module_name):
-    pass
