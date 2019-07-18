@@ -15,9 +15,10 @@ from common import xf_numba
 
 from common import xf_cnst
 from common import ATOL_IDENTITY
+from common import convert_axis_angle_to_expmap
+from common import convert_axis_angle_to_rmat
 
-
-all_impls = pytest.mark.parametrize('make_rmat_of_expmap_impl, module_name', 
+all_impls = pytest.mark.parametrize('make_rmat_of_expmap_impl, module_name',
                                     [(xf_numpy.make_rmat_of_expmap, 'numpy'),
                                      (xf_capi.make_rmat_of_expmap, 'capi'),
                                      (xf_capi.make_rmat_of_expmap, 'new_capi'),
@@ -26,6 +27,27 @@ all_impls = pytest.mark.parametrize('make_rmat_of_expmap_impl, module_name',
                                 )
 
 
+@pytest.fixture(scope="module")
+def axes():
+    def parametric_point_in_sphere(t):
+        # t going from -1.0 to 1.0 will form an spiral over a sphere
+        alpha = 0.5 * t * np.pi
+        beta  = t * np.pi * 42.0
+
+        z = np.sin(alpha)
+        o = np.cos(alpha)
+
+        x = o*np.cos(beta)
+        y = o*np.sin(beta)
+
+        return np.stack((x, y, z), axis=-1)
+
+    return parametric_point_in_sphere(np.linspace(-1.0, 1.0, num=32))
+
+
+@pytest.fixture(scope="module")
+def angs():
+    return np.linspace(-np.pi, np.pi, num=120)
 
 # ------------------------------------------------------------------------------
 
@@ -34,7 +56,7 @@ all_impls = pytest.mark.parametrize('make_rmat_of_expmap_impl, module_name',
 @all_impls
 def test_zero_expmap(make_rmat_of_expmap_impl, module_name):
     exp_map = np.zeros((3,))
-    
+
     rmat = make_rmat_of_expmap_impl(exp_map)
 
     assert_allclose(rmat, xf_cnst.identity_3x3, atol=ATOL_IDENTITY)
@@ -55,9 +77,20 @@ def test_2pi_expmap(make_rmat_of_expmap_impl, module_name):
     assert_allclose(rmat, xf_cnst.identity_3x3, atol=ATOL_IDENTITY)
 
 
+@all_impls
+def test_random_cases(axes, angs, make_rmat_of_expmap_impl, module_name):
+    for axis in axes:
+        for ang in angs:
+            expmap = convert_axis_angle_to_expmap(axis, ang)
+            expected = convert_axis_angle_to_rmat(axis, ang)
+            result = make_rmat_of_expmap_impl(expmap)
+            assert_allclose(result, expected,
+                            atol=ATOL_IDENTITY)
+
+
 # ------------------------------------------------------------------------------
 
-# check that for some random inputs the resulting matrix is orthogonal
+# check that for some random inputs the resulting matrix is orthonormal
 
 @all_impls
 def test_orthonormal(make_rmat_of_expmap_impl, module_name):
