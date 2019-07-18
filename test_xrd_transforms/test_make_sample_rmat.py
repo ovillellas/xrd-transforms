@@ -2,18 +2,19 @@
 
 from __future__ import absolute_import
 
-from .. import make_sample_rmat as default_make_sample_rmat
-from ..xf_numpy import make_sample_rmat as numpy_make_sample_rmat
-#from ..xf_capi import make_sample_rmat as capi_make_sample_rmat
-#from ..xf_numba import make_sample_rmat as numba_make_sample_rmat
-
 import pytest
 
+from common import xf
+from common import xf_numpy
+from common import xf_capi
+from common import xf_numba
+
+
 all_impls = pytest.mark.parametrize('make_sample_rmat_impl, module_name', 
-                                    [(numpy_make_sample_rmat, 'numpy'),
-                                     #(capi_make_sample_rmat, 'capi'),
-                                     #(numba_angles_to_gvec, 'numba'),
-                                     (default_make_sample_rmat, 'default')]
+                                    [(xf_numpy.make_sample_rmat, 'numpy'),
+                                     #(xf_capi.make_sample_rmat, 'capi'),
+                                     #(xf_numba.angles_to_gvec, 'numba'),
+                                     (xf.make_sample_rmat, 'default')]
                                 )
 
 

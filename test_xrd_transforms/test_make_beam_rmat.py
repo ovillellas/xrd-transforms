@@ -2,25 +2,24 @@
 
 from __future__ import absolute_import
 
-from .. import make_beam_rmat as default_make_beam_rmat
-from ..xf_numpy import make_beam_rmat as numpy_make_beam_rmat
-from ..xf_capi import make_beam_rmat as capi_make_beam_rmat
-from ..xf_numba import make_beam_rmat as numba_make_beam_rmat
-
-from ... import constants as cnst
+import pytest
 
 import numpy as np
 from numpy.testing import assert_allclose
 
-import pytest
+from common import xf
+from common import xf_numpy
+from common import xf_capi
+from common import xf_numba
+from common import xf_cnst
 
 ATOL_IDENTITY = 1e-10
 
 all_impls = pytest.mark.parametrize('make_beam_rmat_impl, module_name',
-                                    [(numpy_make_beam_rmat, 'numpy'),
-                                     (capi_make_beam_rmat, 'capi'),
-                                     (numba_make_beam_rmat, 'numba'),
-                                     (default_make_beam_rmat, 'default')]
+                                    [(xf_numpy.make_beam_rmat, 'numpy'),
+                                     (xf_capi.make_beam_rmat, 'capi'),
+                                     (xf_numba.make_beam_rmat, 'numba'),
+                                     (xf.make_beam_rmat, 'default')]
                                 )
 
 # ------------------------------------------------------------------------------
@@ -36,9 +35,9 @@ def test_reference_beam_rmat(make_beam_rmat_impl, module_name):
     cnst.beam_vec and cnst.eta_vec implies an identity beam rotation matrix that
     is ellided in operations"""
 
-    rmat = make_beam_rmat_impl(cnst.beam_vec, cnst.eta_vec)
+    rmat = make_beam_rmat_impl(xf_cnst.beam_vec, xf_cnst.eta_vec)
 
-    assert_allclose(rmat, cnst.identity_3x3, atol=ATOL_IDENTITY)
+    assert_allclose(rmat, xf_cnst.identity_3x3, atol=ATOL_IDENTITY)
 
 
 # ------------------------------------------------------------------------------
@@ -57,7 +56,7 @@ def test_zero_beam_vec(make_beam_rmat_impl, module_name):
 @all_impls
 def test_colinear_beam_eta_vec(make_beam_rmat_impl, module_name):
     with pytest.raises(RuntimeError):
-        make_beam_rmat_impl(cnst.beam_vec, cnst.beam_vec)
+        make_beam_rmat_impl(xf_cnst.beam_vec, xf_cnst.beam_vec)
 
 
 # ------------------------------------------------------------------------------
@@ -79,7 +78,7 @@ def test_orthonormal_1(make_beam_rmat_impl, module_name):
 
     # dot(A, A.T) == Identity seems a good orthonormality check
     # Note: atol needed as rtol is not useful for '0.' entries.
-    assert_allclose(np.dot(rmat, rmat.T), cnst.identity_3x3, atol=ATOL_IDENTITY)
+    assert_allclose(np.dot(rmat, rmat.T), xf_cnst.identity_3x3, atol=ATOL_IDENTITY)
 
 
 @all_impls
@@ -95,7 +94,7 @@ def test_orthonormal_2(make_beam_rmat_impl, module_name):
 
     # dot(A, A.T) == Identity seems a good orthonormality check
     # Note: atol needed as rtol is not useful for '0.' entries.
-    assert_allclose(np.dot(rmat, rmat.T), cnst.identity_3x3, atol=ATOL_IDENTITY)
+    assert_allclose(np.dot(rmat, rmat.T), xf_cnst.identity_3x3, atol=ATOL_IDENTITY)
 
 
 @all_impls
@@ -108,7 +107,7 @@ def test_orthonormal_3(make_beam_rmat_impl, module_name):
 
     # dot(A, A.T) == Identity seems a good orthonormality check
     # Note: atol needed as rtol is not useful for '0.' entries.
-    assert_allclose(np.dot(rmat, rmat.T), cnst.identity_3x3, atol=ATOL_IDENTITY)
+    assert_allclose(np.dot(rmat, rmat.T), xf_cnst.identity_3x3, atol=ATOL_IDENTITY)
 
 
 # ------------------------------------------------------------------------------
@@ -119,34 +118,34 @@ def test_orthonormal_3(make_beam_rmat_impl, module_name):
 def test_strided_beam(make_beam_rmat_impl, module_name):
     buff = np.zeros((3,2), order="C")
     buff[:,:] = 42.0 # fill with some trash value
-    buff[:,0] = cnst.beam_vec # but set a strided vector to the valid value
+    buff[:,0] = xf_cnst.beam_vec # but set a strided vector to the valid value
 
-    rmat = make_beam_rmat_impl(buff[:,0], cnst.eta_vec)
+    rmat = make_beam_rmat_impl(buff[:,0], xf_cnst.eta_vec)
 
     # This should result in identity (see test_reference_beam_rmat)
-    assert_allclose(rmat, cnst.identity_3x3, atol=ATOL_IDENTITY)
+    assert_allclose(rmat, xf_cnst.identity_3x3, atol=ATOL_IDENTITY)
 
 
 @all_impls
 def test_strided_eta(make_beam_rmat_impl, module_name):
     buff = np.zeros((3,2), order="C")
     buff[:,:] = 42.0 # fill with some trash value
-    buff[:,0] = cnst.eta_vec # but set a strided vector to the valid value
+    buff[:,0] = xf_cnst.eta_vec # but set a strided vector to the valid value
 
-    rmat = make_beam_rmat_impl(cnst.beam_vec, buff[:,0])
+    rmat = make_beam_rmat_impl(xf_cnst.beam_vec, buff[:,0])
 
     # This should result in identity (see test_reference_beam_rmat)
-    assert_allclose(rmat, cnst.identity_3x3, atol=ATOL_IDENTITY)
+    assert_allclose(rmat, xf_cnst.identity_3x3, atol=ATOL_IDENTITY)
 
 
 @all_impls
 def test_strided_beam_eta(make_beam_rmat_impl, module_name):
     buff = np.zeros((3,4), order="C")
     buff[:,:] = 42.0
-    buff[:,0] = cnst.beam_vec
-    buff[:,2] = cnst.eta_vec
+    buff[:,0] = xf_cnst.beam_vec
+    buff[:,2] = xf_cnst.eta_vec
 
     rmat = make_beam_rmat_impl(buff[:,0], buff[:,2])
     # This should result in identity (see test_reference_beam_rmat)
-    assert_allclose(rmat, cnst.identity_3x3, atol=ATOL_IDENTITY)
+    assert_allclose(rmat, xf_cnst.identity_3x3, atol=ATOL_IDENTITY)
 

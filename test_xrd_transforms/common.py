@@ -12,3 +12,7 @@ import xrd_transforms as xf
 from xrd_transforms import xf_numpy
 from xrd_transforms import xf_capi
 from xrd_transforms import xf_numba
+from xrd_transforms import constants as xf_cnst
+
+ATOL_IDENTITY = 1e-10
+

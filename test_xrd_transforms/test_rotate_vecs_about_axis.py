@@ -2,18 +2,19 @@
 
 from __future__ import absolute_import
 
-from .. import rotate_vecs_about_axis as default_rotate_vecs_about_axis
-from ..xf_numpy import rotate_vecs_about_axis as numpy_rotate_vecs_about_axis
-from ..xf_capi import rotate_vecs_about_axis as capi_rotate_vecs_about_axis
-#from ..xf_numba import rotate_vecs_about_axis as numba_rotate_vecs_about_axis
-
 import pytest
 
+from common import xf
+from common import xf_numpy
+from common import xf_capi
+from common import xf_numba
+
+
 all_impls = pytest.mark.parametrize('rotate_vecs_about_axis_impl, module_name', 
-                                    [(numpy_rotate_vecs_about_axis, 'numpy'),
-                                     (capi_rotate_vecs_about_axis, 'capi'),
-                                     #(numba_angles_to_gvec, 'numba'),
-                                     (default_rotate_vecs_about_axis, 'default')]
+                                    [(xf_numpy.rotate_vecs_about_axis, 'numpy'),
+                                     (xf_capi.rotate_vecs_about_axis, 'capi'),
+                                     #(xf_numba.angles_to_gvec, 'numba'),
+                                     (xf.rotate_vecs_about_axis, 'default')]
                                 )
 
 

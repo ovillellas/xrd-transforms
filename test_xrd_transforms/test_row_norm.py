@@ -2,18 +2,19 @@
 
 from __future__ import absolute_import
 
-from .. import row_norm as default_row_norm
-from ..xf_numpy import row_norm as numpy_row_norm
-#from ..xf_capi import row_norm as capi_row_norm
-from ..xf_numba import row_norm as numba_row_norm
-
 import pytest
 
+from common import xf
+from common import xf_numpy
+from common import xf_capi
+from common import xf_numba
+
+
 all_impls = pytest.mark.parametrize('row_norm_impl, module_name', 
-                                    [(numpy_row_norm, 'numpy'),
-                                     #(capi_row_norm, 'capi'),
-                                     (numba_row_norm, 'numba'),
-                                     (default_row_norm, 'default')]
+                                    [(xf_numpy.row_norm, 'numpy'),
+                                     #(xf_capi.row_norm, 'capi'),
+                                     (xf_numba.row_norm, 'numba'),
+                                     (xf.row_norm, 'default')]
                                 )
 
 

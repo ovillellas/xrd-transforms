@@ -2,18 +2,19 @@
 
 from __future__ import absolute_import
 
-from .. import angles_to_dvec as default_angles_to_dvec
-from ..xf_numpy import angles_to_dvec as numpy_angles_to_dvec
-from ..xf_capi import angles_to_dvec as capi_angles_to_dvec
-from ..xf_numba import angles_to_dvec as numba_angles_to_dvec
-
 import pytest
 
+from common import xf
+from common import xf_numpy
+from common import xf_capi
+from common import xf_numba
+
+
 all_impls = pytest.mark.parametrize('angles_to_dvec_impl, module_name', 
-                                    [(numpy_angles_to_dvec, 'numpy'),
-                                     (capi_angles_to_dvec, 'capi'),
-                                     (numba_angles_to_dvec, 'numba'),
-                                     (default_angles_to_dvec, 'default')]
+                                    [(xf_numpy.angles_to_dvec, 'numpy'),
+                                     (xf_capi.angles_to_dvec, 'capi'),
+                                     (xf_numba.angles_to_dvec, 'numba'),
+                                     (xf.angles_to_dvec, 'default')]
                                 )
 
 

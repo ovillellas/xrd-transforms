@@ -2,18 +2,19 @@
 
 from __future__ import absolute_import
 
-from .. import gvec_to_xy as default_gvec_to_xy
-from ..xf_numpy import gvec_to_xy as numpy_gvec_to_xy
-from ..xf_capi import gvec_to_xy as capi_gvec_to_xy
-#from ..xf_numba import gvec_to_xy as numba_gvec_to_xy
-
 import pytest
 
+from common import xf
+from common import xf_numpy
+from common import xf_capi
+from common import xf_numba
+
+
 all_impls = pytest.mark.parametrize('gvec_to_xy_impl, module_name', 
-                                    [(numpy_gvec_to_xy, 'numpy'),
-                                     (capi_gvec_to_xy, 'capi'),
-                                     #(numba_gvec_to_xy, 'numba'),
-                                     (default_gvec_to_xy, 'default')]
+                                    [(xf_numpy.gvec_to_xy, 'numpy'),
+                                     (xf_capi.gvec_to_xy, 'capi'),
+                                     #(xf_numba.gvec_to_xy, 'numba'),
+                                     (xf.gvec_to_xy, 'default')]
                                 )
 
 

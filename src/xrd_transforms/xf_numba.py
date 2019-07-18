@@ -26,8 +26,8 @@
 # Boston, MA 02111-1307 USA or visit <http://www.gnu.org/licenses/>.
 # =============================================================================
 # ??? do we want to set np.seterr(invalid='ignore') to avoid nan warnings?
-
 # -*- coding: utf-8 -*-
+
 """Tranforms module implementation using numba.
 
 Currently, this implementation contains code for the following functions:
@@ -47,8 +47,7 @@ import numpy as np
 from numpy import float_ as npfloat
 from numpy import int_ as npint
 
-# from hexrd import constants as cnst
-from .. import constants as cnst
+from . import constants as cnst
 from .transforms_definitions import xf_api, get_signature
 
 import numba

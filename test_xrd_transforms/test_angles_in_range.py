@@ -2,12 +2,12 @@
 
 from __future__ import absolute_import
 
-import sys
-print(sys.path)
-
 import pytest
 
-from common import xf, xf_numpy, xf_capi, xf_numba
+from common import xf
+from common import xf_numpy
+from common import xf_capi
+from common import xf_numba
 
 all_impls = pytest.mark.parametrize('angles_in_range_impl, module_name', 
                                     [(xf_numpy.angles_in_range, 'numpy'),

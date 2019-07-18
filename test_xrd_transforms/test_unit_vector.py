@@ -2,21 +2,21 @@
 
 from __future__ import absolute_import
 
-from .. import unit_vector as default_unit_vector
-from ..xf_numpy import unit_vector as numpy_unit_vector
-from ..xf_capi import unit_vector as capi_unit_vector
-from ..xf_numba import unit_vector as numba_unit_vector
+import pytest
 
 import numpy as np
 from numpy.testing import assert_allclose
 
-import pytest
+from common import xf
+from common import xf_numpy
+from common import xf_capi
+from common import xf_numba
 
 all_impls = pytest.mark.parametrize('unit_vector_impl, module_name', 
-                                    [(numpy_unit_vector, 'numpy'),
-                                     (capi_unit_vector, 'capi'),
-                                     (numba_unit_vector, 'numba'),
-                                     (default_unit_vector, 'default')]
+                                    [(xf_numpy.unit_vector, 'numpy'),
+                                     (xf_capi.unit_vector, 'capi'),
+                                     (xf_numba.unit_vector, 'numba'),
+                                     (xf.unit_vector, 'default')]
                                 )
 
 

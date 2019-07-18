@@ -2,18 +2,19 @@
 
 from __future__ import absolute_import
 
-from .. import quat_distance as default_quat_distance
-from ..xf_numpy import quat_distance as numpy_quat_distance
-from ..xf_capi import quat_distance as capi_quat_distance
-#from ..xf_numba import quat_distance as numba_quat_distance
-
 import pytest
 
+from common import xf
+from common import xf_numpy
+from common import xf_capi
+from common import xf_numba
+
+
 all_impls = pytest.mark.parametrize('quat_distance_impl, module_name', 
-                                    [(numpy_quat_distance, 'numpy'),
-                                     (capi_quat_distance, 'capi'),
-                                     #(numba_angles_to_gvec, 'numba'),
-                                     (default_quat_distance, 'default')]
+                                    [(xf_numpy.quat_distance, 'numpy'),
+                                     (xf_capi.quat_distance, 'capi'),
+                                     #(xf_numba.angles_to_gvec, 'numba'),
+                                     (xf.quat_distance, 'default')]
                                 )
 
 
@@ -24,3 +25,4 @@ def test_sample1(quat_distance_impl, module_name):
 @all_impls
 def test_sample2(quat_distance_impl, module_name):
     pass
+

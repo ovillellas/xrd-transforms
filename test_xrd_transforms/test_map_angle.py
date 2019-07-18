@@ -2,18 +2,18 @@
 
 from __future__ import absolute_import
 
-from .. import map_angle as default_map_angle
-from ..xf_numpy import map_angle as numpy_map_angle
-#from ..xf_capi import map_angle as capi_map_angle
-#from ..xf_numba import map_angle as numba_map_angle
-
 import pytest
 
+from common import xf
+from common import xf_numpy
+from common import xf_capi
+from common import xf_numba
+
 all_impls = pytest.mark.parametrize('map_angle_impl, module_name', 
-                                    [(numpy_map_angle, 'numpy'),
-                                     #(capi_map_angle, 'capi'),
-                                     #(numba_angles_to_gvec, 'numba'),
-                                     (default_map_angle, 'default')]
+                                    [(xf_numpy.map_angle, 'numpy'),
+                                     #(xf_capi.map_angle, 'capi'),
+                                     #(xf_numba.angles_to_gvec, 'numba'),
+                                     (xf.map_angle, 'default')]
                                 )
 
 
