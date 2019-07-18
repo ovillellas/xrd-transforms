@@ -229,7 +229,7 @@ def angles_to_gvec(
 
     # need rmat_b
     rmat_b = make_beam_rmat(beam_vec, eta_vec)
-    
+
     # handle sample frame(s)
     rmat_s = None
     if dim > 2:
@@ -565,14 +565,23 @@ def row_norm(vec_in):
 
 @xf_api
 def unit_vector(vec_in):
+    orig_dims = vec_in.ndim
+    if vec_in.ndim not in [1,2]:
+        # Make sure that dimensions are supported
+        raise ValueError(
+            "incorrect arg shape; must be 1-d or 2-d, yours is %d-d"
+            % (vec_in.ndim)
+        )
+
     a = np.atleast_2d(vec_in)
     n = a.shape[1]
 
     # calculate row norms and prevent divide by zero
-    nrm = np.tile(np.sqrt(np.sum(a*a, axis=1)), (n, 1)).T
+    nrm = np.sqrt(np.sum(a*a, axis=1))
     nrm[nrm <= cnst.epsf] = 1.
+    normalized = a/nrm[:,np.newaxis]
 
-    return (a/nrm).squeeze()
+    return normalized[0] if orig_dims == 1 else normalized
 
 
 @xf_api

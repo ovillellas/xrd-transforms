@@ -13,7 +13,7 @@ from common import xf_capi
 from common import xf_new_capi
 from common import xf_numba
 
-all_impls = pytest.mark.parametrize('unit_vector_impl, module_name', 
+all_impls = pytest.mark.parametrize('unit_vector_impl, module_name',
                                     [(xf_numpy.unit_vector, 'numpy'),
                                      (xf_capi.unit_vector, 'capi'),
                                      (xf_new_capi.unit_vector, 'new_capi'),
@@ -94,7 +94,7 @@ def test_random_vectors(unit_vector_impl, module_name):
 # check input ordering
 
 @all_impls
-def test_strided_inputs(unit_vector_impl, module_name):
+def test_random_vectors_strided(unit_vector_impl, module_name):
     vecs, expected_norm = _get_random_vectors_array()
 
     vecs_f = np.asfortranarray(vecs)
@@ -108,3 +108,25 @@ def test_strided_inputs(unit_vector_impl, module_name):
     result = unit_vector_impl(vecs_f)
     assert_allclose(np.linalg.norm(result, axis=1), expected_norm)
 
+
+@all_impls
+def test_keep_dimensions(unit_vector_impl, module_name):
+    # check that the case of a 2d array with a single vector is handled
+    # in a consistent way (keeps the same dimensions as the input).
+    test_vec = np.array([[1.0, 0.0, 0.0]], dtype=np.double)
+
+    result = unit_vector_impl(test_vec)
+
+    assert result.shape == test_vec.shape # should be (1, 3)
+
+    result2 = unit_vector_impl(test_vec[0])
+
+    assert result2.shape == test_vec[0].shape # should be (3,)
+
+
+@all_impls
+def test_too_many_dimensions(unit_vector_impl, module_name):
+    # our norm should fail on 3 dimensional arrays using a ValueError
+    test_vec = np.arange(16., dtype=np.double).reshape((4,2,2))
+    with pytest.raises(ValueError):
+        unit_vector_impl(test_vec)

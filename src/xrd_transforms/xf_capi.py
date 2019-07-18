@@ -169,7 +169,10 @@ def unit_vector(vec_in):
     elif vec_in.ndim == 2:
         return _impl.unitRowVectors(vec_in)
     else:
-        assert vec_in.ndim in [1,2], "incorrect arg shape; must be 1-d or 2-d, yours is %d-d" % (a.ndim)
+        raise ValueError(
+            "incorrect arg shape; must be 1-d or 2-d, yours is %d-d"
+            % (vec_in.ndim)
+        )
 
 
 #@xf_api
