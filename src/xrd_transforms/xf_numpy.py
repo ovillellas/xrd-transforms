@@ -580,7 +580,9 @@ def make_sample_rmat(chi, ome):
     # angle chi about LAB X
     cchi = np.cos(chi)
     schi = np.sin(chi)
-    rchi = np.array([[1., 0., 0.], [0., cchi, -schi], [0., schi, cchi]])
+    rchi = np.array([[1., 0., 0.],
+                     [0., cchi, -schi],
+                     [0., schi, cchi]], dtype = np.double)
 
     # angle ome about SAMPLE Y ([0., cos(chi), sin(chi)] in LAB)
     ome = np.atleast_1d(ome)
