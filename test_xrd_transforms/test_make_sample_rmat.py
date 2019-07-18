@@ -8,12 +8,14 @@ from numpy.testing import assert_allclose as np_assert_allclose
 from common import xf
 from common import xf_numpy
 from common import xf_capi
+from common import xf_new_capi
 from common import xf_numba
 from common import xf_cnst
 
 all_impls = pytest.mark.parametrize('make_sample_rmat_impl, module_name', 
                                     [(xf_numpy.make_sample_rmat, 'numpy'),
                                      #(xf_capi.make_sample_rmat, 'capi'),
+                                     #(xf_new_capi.make_sample_rmat, 'new_capi'),
                                      #(xf_numba.angles_to_gvec, 'numba'),
                                      (xf.make_sample_rmat, 'default')]
                                 )

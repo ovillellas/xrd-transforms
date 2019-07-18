@@ -15,7 +15,7 @@
  * Note the supporting CONCAT and STR macros...
  * =============================================================================
  */
-#define THIS_MODULE_NAME _transforms_CAPI
+#define THIS_MODULE_NAME _new_transforms_capi
 
 #define _CONCAT(a,b) a ## b
 #define CONCAT(a,b) _CONCAT(a,b)

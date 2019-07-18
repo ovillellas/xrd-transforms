@@ -9,12 +9,14 @@ import numpy.testing as np_testing
 from common import xf
 from common import xf_numpy
 from common import xf_capi
+from common import xf_new_capi
 from common import xf_numba
 
 
 all_impls = pytest.mark.parametrize('angles_to_gvec_impl, module_name', 
                                     [(xf_numpy.angles_to_gvec, 'numpy'),
                                      (xf_capi.angles_to_gvec, 'capi'),
+                                     (xf_new_capi.angles_to_gvec, 'new_capi'),
                                      (xf_numba.angles_to_gvec, 'numba'),
                                      (xf.angles_to_gvec, 'default')]
                                 )

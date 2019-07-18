@@ -11,6 +11,7 @@ from __future__ import absolute_import
 import xrd_transforms as xf
 from xrd_transforms import xf_numpy
 from xrd_transforms import xf_capi
+from xrd_transforms import xf_new_capi
 from xrd_transforms import xf_numba
 from xrd_transforms import constants as xf_cnst
 

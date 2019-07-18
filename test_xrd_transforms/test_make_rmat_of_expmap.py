@@ -10,6 +10,7 @@ from numpy.testing import assert_allclose
 from common import xf
 from common import xf_numpy
 from common import xf_capi
+from common import xf_new_capi
 from common import xf_numba
 
 from common import xf_cnst
@@ -19,6 +20,7 @@ from common import ATOL_IDENTITY
 all_impls = pytest.mark.parametrize('make_rmat_of_expmap_impl, module_name', 
                                     [(xf_numpy.make_rmat_of_expmap, 'numpy'),
                                      (xf_capi.make_rmat_of_expmap, 'capi'),
+                                     (xf_capi.make_rmat_of_expmap, 'new_capi'),
                                      (xf_numba.make_rmat_of_expmap, 'numba'),
                                      (xf.make_rmat_of_expmap, 'default')]
                                 )

@@ -26,7 +26,7 @@ from __future__ import absolute_import, print_function, division
 
 from . import constants as cnst
 from .transforms_definitions import xf_api
-from . import _transforms_CAPI as _impl
+from . import _new_transforms_capi as _impl
 
 import numpy as np
 
