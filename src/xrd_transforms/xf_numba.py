@@ -218,9 +218,10 @@ def angles_to_gvec(angs,
 def angles_to_dvec(angs,
                    beam_vec=None, eta_vec=None,
                    chi=None, rmat_c=None):
-    """Note about this implementation:
-    This used to take rmat_b instead of the pair beam_vec, eta_vec. So it may require
-    some checking.
+    """Note about this implementation: 
+
+    This used to take rmat_b instead of the pair beam_vec, eta_vec. So it may
+    require some checking.
     """
     angs = np.atleast_2d(angs)
     nvecs, dim = angs.shape
@@ -297,7 +298,7 @@ def _unit_vector_multi(a, out=None):
             recip_norm = 1.0 / np.sqrt(sqr_norm)
             out[i,:] = a[i,:] * recip_norm
         else:
-            out[i,:] = a[i,:j]
+            out[i,:] = a[i,:]
 
     return out
 

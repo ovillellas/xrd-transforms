@@ -591,7 +591,9 @@ def make_sample_rmat(chi, ome):
     else:
         come = np.cos(ome)
         some = np.sin(ome)
-        rome = np.array([[come, 0., some], [0., 1., 0.], [-some, 0., come]])
+        rome = np.array([[come, 0., some],
+                         [0., 1., 0.],
+                         [-some, 0., come]], dtype = np.double)
         rmat_s = np.dot(rchi, rome)
     return rmat_s
 
