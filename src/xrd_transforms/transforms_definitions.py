@@ -344,9 +344,14 @@ class DEF_map_angle(DEF_Func):
 
 class DEF_row_norm(DEF_Func):
     """
-    normalize array of row vectors (vstacked, axis = 1)
+    Compute the norm of row vectors.
+
+    guaranteed to work for 1d and 2d arrays.
+
+    note: numpy.linalg.norm could be used instead as this is equivalent to
+          numpy.linalg.norm(vec_in, axis=1)
     """
-    def _signature(a):
+    def _signature(vec_in):
         pass
 
 

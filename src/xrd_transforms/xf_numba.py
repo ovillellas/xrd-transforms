@@ -303,18 +303,21 @@ def _unit_vector_multi(a, out=None):
     return out
 
 @xf_api
-def row_norm(a):
+def row_norm(vec_in):
     """
     return row-wise norms for a list of vectors
     """
     # TODO: leave this to a PRECONDITION in the xf_api?
-    if len(a.shape)>2:
+    if vec_in.ndim == 1:
+        out = _row_norm(np.atleast_2d(vec_in))[0]
+    elif vec_in.ndim == 2:
+        out = _row_norm(vec_in)
+    else:
         raise RuntimeError(
             "incorrect shape: arg must be  1-d or 2-d, yours is %d"
-            % (len(a.shape)))
+            % (len(vec_in.shape)))
 
-    a = np.atleast_2d(a)
-    return _row_norm(a)
+    return out
 
 
 @xf_api

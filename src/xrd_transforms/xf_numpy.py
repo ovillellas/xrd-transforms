@@ -554,13 +554,13 @@ def map_angle(ang, range=None, units=None):
     return retval
 
 @xf_api
-def row_norm(a):
-    if len(a.shape) > 2:
+def row_norm(vec_in):
+    if len(vec_in.shape) > 2:
         raise RuntimeError(
                 "incorrect shape: arg must be 1-d or 2-d, yours is %d"
-                % (len(a.shape))
+                % (len(vec_in.shape))
         )
-    return np.sqrt(sum(np.asarray(a)**2, 1))
+    return np.sqrt(np.sum(np.asarray(vec_in)**2, axis=-1))
 
 
 @xf_api
