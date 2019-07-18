@@ -1,4 +1,5 @@
 #! /usr/bin/env python
+
 # -*- encoding: utf-8 -*-
 
 # ============================================================
@@ -31,9 +32,9 @@
 from __future__ import absolute_import
 from __future__ import print_function
 
-import glob
 import os
 import sys
+import glob
 
 import numpy
 
@@ -66,30 +67,6 @@ optional_dependencies = [
     'pytest', # in order to run tests, use pytest.
     ]
 
-class test(Command):
-
-    """Run the test suite."""
-
-    description = "Run the test suite"
-
-    user_options = [('verbosity', 'v', 'set test report verbosity')]
-
-    def initialize_options(self):
-        self.verbosity = 0
-
-    def finalize_options(self):
-        try:
-            self.verbosity = int(self.verbosity)
-        except ValueError:
-            raise ValueError('Verbosity must be an integer.')
-
-    def run(self):
-        import unittest
-        suite = unittest.TestLoader().discover('test')
-        unittest.TextTestRunner(verbosity=self.verbosity+1).run(suite)
-
-
-cmdclass['test'] = test
 
 transforms_capi_extension = Extension(
     'xrd_transforms._transforms_CAPI',
