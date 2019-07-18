@@ -313,7 +313,7 @@ def row_norm(vec_in):
     elif vec_in.ndim == 2:
         out = _row_norm(vec_in)
     else:
-        raise RuntimeError(
+        raise ValueError(
             "incorrect shape: arg must be  1-d or 2-d, yours is %d"
             % (len(vec_in.shape)))
 

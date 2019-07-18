@@ -556,7 +556,7 @@ def map_angle(ang, range=None, units=None):
 @xf_api
 def row_norm(vec_in):
     if len(vec_in.shape) > 2:
-        raise RuntimeError(
+        raise ValueError(
                 "incorrect shape: arg must be 1-d or 2-d, yours is %d"
                 % (len(vec_in.shape))
         )

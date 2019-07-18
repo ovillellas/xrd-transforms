@@ -42,21 +42,24 @@ def test_random_vectors(row_norm_impl, module_name):
     for i in range(len(vecs)):
         result = row_norm_impl(vecs[i])
         expected = np.linalg.norm(vecs[i])
-        assert(type(result) == type(expected))
-        assert(result.shape == expected.shape)
-        assert(result.dtype == expected.dtype)
+        assert type(result) == type(expected)
+        assert result.dtype == expected.dtype
         assert_allclose(result, expected)
 
     # all in a row
-    assert_allclose(row_norm_impl(vecs), np.linalg.norm(vecs, axis=1))
-
-
+    result = row_norm_impl(vecs)
+    expected = np.linalg.norm(vecs, axis=1)
+    assert type(result) == type(expected)
+    assert result.dtype == expected.dtype
+    
+    assert_allclose(result, expected)
 
 
 @all_impls
-def test_sample1(row_norm_impl, module_name):
-    pass
+def test_too_many_dimensions(row_norm_impl, module_name):
+    # our norm should fail on 3 dimensional arrays using a ValueError
+    test_vec = np.arange(16., dtype=np.double).reshape((4,2,2))
+    with pytest.raises(ValueError):
+        row_norm_impl(test_vec)
 
-@all_impls
-def test_sample2(row_norm_impl, module_name):
-    pass
+    
