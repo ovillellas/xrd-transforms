@@ -358,7 +358,7 @@ class DEF_row_norm(DEF_Func):
 class DEF_unit_vector(DEF_Func):
     """
     Normalize an array of row vectors (vstacked, axis=0)
-    For vectors with (very close to zero) norm, the original 
+    For vectors with (very close to) zero norm, the original
     vector is returned.
 
     guaranteed to work for 1d and 2d arrays.
