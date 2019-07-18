@@ -45,7 +45,7 @@ class DEF_Func(object):
         pass
 
     @classmethod
-    def _PRECOND(cls, *arg, **kwarg):
+    def _PRECOND(cls, *args, **kwargs):
         print("PRECOND (", cls.__class__.__name__,")")
         pass
 
