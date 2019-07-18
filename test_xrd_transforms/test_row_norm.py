@@ -13,7 +13,7 @@ from common import xf_new_capi
 from common import xf_numba
 
 
-all_impls = pytest.mark.parametrize('row_norm_impl, module_name', 
+all_impls = pytest.mark.parametrize('row_norm_impl, module_name',
                                     [(xf_numpy.row_norm, 'numpy'),
                                      #(xf_capi.row_norm, 'capi'),
                                      #(xf_new_capi.row_norm, 'new_capi'),
@@ -36,7 +36,7 @@ def _get_random_vectors_array():
 @all_impls
 def test_random_vectors(row_norm_impl, module_name):
     # checking against numpy.linalg.norm
-    vecs = _get_random_vectors_array()
+    vecs = np.ascontiguousarray(_get_random_vectors_array())
 
     # element by element
     for i in range(len(vecs)):
@@ -51,7 +51,30 @@ def test_random_vectors(row_norm_impl, module_name):
     expected = np.linalg.norm(vecs, axis=1)
     assert type(result) == type(expected)
     assert result.dtype == expected.dtype
-    
+
+    assert_allclose(result, expected)
+
+
+@all_impls
+def test_random_vectors_strided(row_norm_impl, module_name):
+    # this is the same as test_random_vectors, but in a layout that forces
+    # strided memory access for the inner dimension
+    vecs = np.asfortranarray(_get_random_vectors_array())
+
+    # element by element
+    for i in range(len(vecs)):
+        result = row_norm_impl(vecs[i])
+        expected = np.linalg.norm(vecs[i])
+        assert type(result) == type(expected)
+        assert result.dtype == expected.dtype
+        assert_allclose(result, expected)
+
+    # all in a row
+    result = row_norm_impl(vecs)
+    expected = np.linalg.norm(vecs, axis=1)
+    assert type(result) == type(expected)
+    assert result.dtype == expected.dtype
+
     assert_allclose(result, expected)
 
 
@@ -61,5 +84,3 @@ def test_too_many_dimensions(row_norm_impl, module_name):
     test_vec = np.arange(16., dtype=np.double).reshape((4,2,2))
     with pytest.raises(ValueError):
         row_norm_impl(test_vec)
-
-    
