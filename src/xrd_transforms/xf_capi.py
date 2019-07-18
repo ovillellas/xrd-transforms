@@ -37,18 +37,19 @@ def angles_to_gvec(
         chi=None, rmat_c=None):
     # TODO: revise 
 
-    beam_vec = beam_vec if beam_vec is not None else const.beam_vec
-    eta_vec = eta_vec if eta_vec is not None else const.eta_vec
+    beam_vec = beam_vec if beam_vec is not None else cnst.beam_vec
+    eta_vec = eta_vec if eta_vec is not None else cnst.eta_vec
 
+    orig_ndim = angs.ndim
     angs = np.ascontiguousarray( np.atleast_2d(angs) )
     beam_vec = np.ascontiguousarray( beam_vec.flatten() )
     eta_vec = np.ascontiguousarray( eta_vec.flatten() )
-    rmat_c = const.identity_3x3 if rmat_c is None else np.ascontiguousarray( rmat_c )
+    rmat_c = cnst.identity_3x3 if rmat_c is None else np.ascontiguousarray( rmat_c )
     chi = 0.0 if chi is None else float(chi)
 
-    return _transforms_CAPI.anglesToGVec(angs, 
-                                         beam_vec, eta_vec,
-                                         chi, rmat_c)
+    result = _transforms_CAPI.anglesToGVec(angs, beam_vec, eta_vec, chi, rmat_c)
+
+    return result[0] if orig_ndim == 1 else result
 
 
 @xf_api
@@ -57,13 +58,13 @@ def angles_to_dvec(
         beam_vec=None, eta_vec=None,
         chi=None, rmat_c=None):
     # TODO: Improve capi to avoid multiplications when rmat_c is None
-    beam_vec = beam_vec if beam_vec is not None else const.beam_vec
-    eta_vec = eta_vec if eta_vec is not None else const.eta_vec
+    beam_vec = beam_vec if beam_vec is not None else cnst.beam_vec
+    eta_vec = eta_vec if eta_vec is not None else cnst.eta_vec
     
     angs = np.ascontiguousarray( np.atleast_2d(angs) )
     beam_vec = np.ascontiguousarray( beam_vec.flatten() )
     eta_vec = np.ascontiguousarray( eta_vec.flatten() )
-    rmat_c = np.ascontiguousarray(rmat_c) if rmat_c is not None else const.identity_3x3
+    rmat_c = np.ascontiguousarray(rmat_c) if rmat_c is not None else cnst.identity_3x3
     chi = 0.0 if chi is None else float(chi)
 
     return _transforms_CAPI.anglesToDVec(angs,
@@ -82,27 +83,29 @@ def gvec_to_xy(gvec_c,
                beam_vec=None,
                vmat_inv=None,
                bmat=None):
-    beam_vec = beam_vec if beam_vec is not None else const.beam_vec
+    beam_vec = beam_vec if beam_vec is not None else cnst.beam_vec
 
-    gvec_c  = np.ascontiguousarray( np.atleast_2d( gvec_c ) )
+    orig_ndim = gvec_c.ndim
+    gvec_c  = np.ascontiguousarray( np.atleast_2d(gvec_c) )
     rmat_s  = np.ascontiguousarray( rmat_s )
     tvec_d  = np.ascontiguousarray( tvec_d.flatten()  )
     tvec_s  = np.ascontiguousarray( tvec_s.flatten()  )
     tvec_c  = np.ascontiguousarray( tvec_c.flatten()  )
     beam_vec = np.ascontiguousarray( beam_vec.flatten() )
 
-    # depending on the number of dimensions of rmat_s use either the array version
-    # or the "scalar" (over rmat_s) version. Note that rmat_s is either a 3x3 matrix
-    # (ndim 2) or an nx3x4 array of matrices (ndim 3) 
+    # depending on the number of dimensions of rmat_s use either the array
+    # version or the "scalar" (over rmat_s) version. Note that rmat_s is either
+    # a 3x3 matrix (ndim 2) or an nx3x4 array of matrices (ndim 3)
     if rmat_s.ndim > 2:
-        return _transforms_CAPI.gvecToDetectorXYArray(gvec_c,
-                                                      rmat_d, tvec_s, tvec_c,
-                                                      beam_vec)
+        result =  _transforms_CAPI.gvecToDetectorXYArray(gvec_c,
+                                                         rmat_d, tvec_s, tvec_c,
+                                                         beam_vec)
     else:
-        return _transforms_CAPI.gvecToDetectorXY(gvec_c,
-                                                 rmat_d, rmat_s, rmat_c,
-                                                 tvec_d, tvec_s, tvec_c,
-                                                 beam_vec)
+        result =  _transforms_CAPI.gvecToDetectorXY(gvec_c,
+                                                    rmat_d, rmat_s, rmat_c,
+                                                    tvec_d, tvec_s, tvec_c,
+                                                    beam_vec)
+    return result[0] if orig_ndim == 1 else result
 
 
 @xf_api

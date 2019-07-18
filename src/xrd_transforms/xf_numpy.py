@@ -48,6 +48,7 @@ def _beam_to_crystal(vecs, rmat_b=None, rmat_s=None, rmat_c=None):
     to either SAMPLE or CRYSTAL
 
     """
+    orig_dims = vecs.ndim
     vecs = np.atleast_2d(vecs)
     nvecs = len(vecs)
     if rmat_s is not None:
@@ -79,10 +80,10 @@ def _beam_to_crystal(vecs, rmat_b=None, rmat_s=None, rmat_c=None):
                 vecs[i] = np.dot(vecs[i], rmat_s[i])
         else:
             vecs = np.dot(vecs, rmat_s)
-    if rmat_c is None:
-        return vecs
-    else:
+    if rmat_c is not None:
         return np.dot(vecs, rmat_c)
+
+    return vecs[0] if orig_dims == 1 else vecs
 
 
 def _crystal_to_lab(gvecs,
@@ -213,9 +214,10 @@ def angles_to_gvec(
         beam_vec=None, eta_vec=None,
         chi=None, rmat_c=None):
 
-    beam_vec = beam_vec if beam_vec is not None else const.beam_vec
-    eta_vec = eta_vec if eta_vec is not None else const.eta_vec
+    beam_vec = beam_vec if beam_vec is not None else cnst.beam_vec
+    eta_vec = eta_vec if eta_vec is not None else cnst.eta_vec
 
+    orig_ndim = angs.ndim
     angs = np.atleast_2d(angs)
     nvecs, dim = angs.shape
 
@@ -228,12 +230,15 @@ def angles_to_gvec(
     # need rmat_b
     rmat_b = make_beam_rmat(beam_vec, eta_vec)
     
-    # handle sample frames(s)
+    # handle sample frame(s)
     rmat_s = None
     if dim > 2:
         rmat_s = _rmat_s_helper(angs[:, 2], chi=chi)
-    return _beam_to_crystal(gvec_b, rmat_b=rmat_b,
-                            rmat_s=rmat_s, rmat_c=rmat_c)
+    result = _beam_to_crystal(gvec_b, rmat_b=rmat_b,
+                              rmat_s=rmat_s, rmat_c=rmat_c)
+
+    return result[0] if orig_ndim == 1 else result
+
 
 @xf_api
 def angles_to_dvec(

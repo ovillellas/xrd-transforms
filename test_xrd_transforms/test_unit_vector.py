@@ -79,10 +79,12 @@ def test_random_vectors(unit_vector_impl, module_name):
 
     # element by element
     for i in range(len(vecs)):
-        assert_allclose(np.linalg.norm(unit_vector_impl(vecs[i])), expected_norm[i])
+        result = unit_vector_impl(vecs[i])
+        assert_allclose(np.linalg.norm(result), expected_norm[i])
 
     # all in a row
-    assert_allclose(np.linalg.norm(unit_vector_impl(vecs), axis=1), expected_norm)
+    result = unit_vector_impl(vecs)
+    assert_allclose(np.linalg.norm(result, axis=1), expected_norm)
 
 
 # ------------------------------------------------------------------------------
@@ -97,7 +99,10 @@ def test_strided_inputs(unit_vector_impl, module_name):
 
     # element by element
     for i in range(len(vecs_f)):
-        assert_allclose(np.linalg.norm(unit_vector_impl(vecs_f[i])), expected_norm[i])
+        result = unit_vector_impl(vecs_f[i])
+        assert_allclose(np.linalg.norm(result), expected_norm[i])
 
     # all in a row
-    assert_allclose(np.linalg.norm(unit_vector_impl(vecs_f), axis=1), expected_norm)
+    result = unit_vector_impl(vecs_f)
+    assert_allclose(np.linalg.norm(result, axis=1), expected_norm)
+

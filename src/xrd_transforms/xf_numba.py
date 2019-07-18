@@ -49,6 +49,8 @@ from numpy import int_ as npint
 
 from . import constants as cnst
 from .transforms_definitions import xf_api, get_signature
+from .xf_numpy import _beam_to_crystal
+
 
 import numba
 
@@ -59,47 +61,6 @@ def xfapi_jit(fn):
     out.__signature__ = get_signature(fn)
 
     return out
-
-
-def _beam_to_crystal(vecs, rmat_b=None, rmat_s=None, rmat_c=None):
-    """
-    Helper function to take vectors definced in the BEAM frame through LAB
-    to either SAMPLE or CRYSTAL
-
-    """
-    vecs = np.atleast_2d(vecs)
-    nvecs = len(vecs)
-    if rmat_s is not None:
-        rmat_s = np.squeeze(rmat_s)
-        if rmat_s.ndim == 3:
-            assert len(rmat_s) == nvecs, \
-                "if specifying an array of rmat_s, dimensions must be " + \
-                "(%d, 3, 3), not (%d, %d, %d)" \
-                % tuple([nvecs] + list(rmat_s.shape))
-
-    # take to lab frame (row order)
-    if rmat_b is not None:
-        vecs = np.dot(vecs, rmat_b.T)
-
-    # to go to CRYSTAL in column vec order (hstacked gvec_l):
-    #
-    # gvec_l = np.dot(np.dot(rmat_c.T, np.dot(rmat_s.T, rmat_b)), gvec_b)
-    #
-    # rmat_s = np.dot(rchi, rome)
-    #
-    # --> in row vec order (vstacked gvec_l, C order):
-    #
-    # gvec_l = np.dot(gvec_b, np.dot(rmat_b.T, np.dot(rmat_s, rmat_c)))
-    if rmat_s is not None:
-        if rmat_s.ndim > 2:
-            for i in range(nvecs):
-                vecs[i] = np.dot(vecs[i], rmat_s[i])
-        else:
-            vecs = np.dot(vecs, rmat_s)
-    if rmat_c is None:
-        return vecs
-    else:
-        return np.dot(vecs, rmat_c)
 
 
 @numba.njit
@@ -114,10 +75,10 @@ def _angles_to_gvec_helper(angs, out=None):
 
     although much faster
     """
-    _, dim = angs.shape
-    out = out if out is not None else np.empty((dim, 3), dtype=angs.dtype)
+    count, dim = angs.shape
+    out = out if out is not None else np.empty((count, 3), dtype=angs.dtype)
 
-    for i in range(len(angs)):
+    for i in range(count):
         ca0 = np.cos(0.5*angs[i, 0])
         sa0 = np.sin(0.5*angs[i, 0])
         ca1 = np.cos(angs[i, 1])
@@ -227,6 +188,7 @@ def angles_to_gvec(angs,
     This used to take rmat_b instead of the pair beam_vec, eta_vec. So it may require
     some checking.
     """
+    orig_ndim = angs.ndim
     angs = np.atleast_2d(angs)
     nvecs, dim = angs.shape
 
@@ -234,7 +196,7 @@ def angles_to_gvec(angs,
     gvec_b = _angles_to_gvec_helper(angs[:,0:2])
 
     # _rmat_s_helper could return None to mean "Identity" when chi and ome are None.
-    omes = angs[:, 2] if dim>2 else None
+    omes = angs[:, 2] if dim > 2 else None
     if chi is not None or omes is not None:
         rmat_s = _rmat_s_helper(chi=chi, omes=omes)
     else:
@@ -249,7 +211,7 @@ def angles_to_gvec(angs,
 
     out = _beam_to_crystal(gvec_b,
                            rmat_b=rmat_b, rmat_s=rmat_s, rmat_c=rmat_c)
-    return out
+    return out[0] if orig_ndim == 1 else out
 
 
 @xf_api
@@ -305,19 +267,19 @@ def _unit_vector_single(a, out=None):
     out = out if out is not None else np.empty_like(a)
 
     n = len(a)
-    nrm = 0.0
-    for i in range(n):
-        nrm += a[i]*a[i]
-    nrm = np.sqrt(nrm)
-    # prevent divide by zero
-    if nrm > cnst.epsf:
-        for i in range(n):
-            out[i] = a[i] / nrm
+    sqr_norm = a[0]*a[0]
+    for i in range(1, n):
+        sqr_norm += a[i]*a[i]
+
+        # prevent divide by zero
+    if sqr_norm > cnst.epsf:
+        recip_norm = 1.0 / np.sqrt(sqr_norm)
+        out[:] = a[:] * recip_norm
     else:
-        for i in range(n):
-            out[i] = a[i]
+        out[:] = a[:]
 
     return out
+
 
 @numba.njit
 def _unit_vector_multi(a, out=None):
@@ -325,17 +287,17 @@ def _unit_vector_multi(a, out=None):
 
     n, dim = a.shape
     for i in range(n):
-        nrm = 0.0
-        for j in range(dim):
-            nrm += a[i, j]*a[i, j]
-        nrm = np.sqrt(nrm)
-        # prevent divide by zero
-        if nrm > cnst.epsf:
-            for j in range(n):
-                out[i, j] = a[i, j] / nrm
+        #_unit_vector_single(a[i], out=out[i])
+        sqr_norm = a[i, 0] * a[i, 0]
+        
+        for j in range(1, dim):
+            sqr_norm += a[i, j]*a[i, j]
+
+        if sqr_norm > cnst.epsf:
+            recip_norm = 1.0 / np.sqrt(sqr_norm)
+            out[i,:] = a[i,:] * recip_norm
         else:
-            for j in range(n):
-                out[i, j] = a[i, j]
+            out[i,:] = a[i,:j]
 
     return out
 
