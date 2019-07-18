@@ -79,6 +79,12 @@ transforms_capi_extension = Extension(
     # extra_compile_args=['-std=99'],
     )
 
+new_transforms_capi_extension = Extension(
+    'xrd_transforms._new_transforms_capi',
+    sources=['src/c-module/new_transforms_capi/module.c'],
+    include_dirs=[numpy.get_include()],
+    )
+
 _version = versioneer.get_version()
 
 setup(
@@ -94,7 +100,8 @@ setup(
     author_email = 'praxes@googlegroups.com',
     url = 'http://xrd_transforms.readthedocs.org',
 
-    ext_modules = [transforms_capi_extension],
+    ext_modules = [transforms_capi_extension,
+                   new_transforms_capi_extension],
     packages = find_packages(where='src/', ),
     package_dir = { '': 'src'},
 
@@ -116,9 +123,6 @@ setup(
     ],
 
     install_requires = base_dependencies,
-
-    extras_requires = {
-    },
 
     entry_points = {
     },
