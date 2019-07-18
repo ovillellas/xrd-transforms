@@ -199,13 +199,6 @@ def make_rmat_of_expmap(exp_map):
     return _transforms_CAPI.makeRotMatOfExpMap(arg)
 
 
-# Not in transforms API
-#@xf_api
-def makeRotMatOfQuat(quats):
-    arg = np.ascontiguousarray(quats)
-    return _transforms_CAPI.makeRotMatOfQuat(arg)
-
-
 @xf_api
 def make_binary_rmat(axis):
     arg = np.ascontiguousarray(axis.flatten())
@@ -241,7 +234,3 @@ def quat_distance(q1, q2, qsym):
     return _transforms_CAPI.quat_distance(q1, q2, qsym)
 
 
-#@xf_api
-def homochoricOfQuat(quats):
-    q = np.ascontiguousarray(quats.T)
-    return _transforms_CAPI.homochoricOfQuat(q)
