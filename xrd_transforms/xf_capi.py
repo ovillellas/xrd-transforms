@@ -24,9 +24,10 @@ There are also some functions that maybe would be needed in the transforms modul
 """
 from __future__ import absolute_import, print_function, division
 
-from hexrd import constants as cnst
-from .. import _transforms_CAPI
+from . import constants as cnst
 from .transforms_definitions import xf_api
+from . import _transforms_CAPI
+
 import numpy as np
 
 @xf_api

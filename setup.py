@@ -41,8 +41,8 @@ cmdclass = versioneer.get_cmdclass()
 
 versioneer.VCS = 'git'
 versioneer.style = 'default'
-versioneer.versionfile_source = 'transforms/_version.py'
-versioneer.versionfile_build = 'transforms/_version.py'
+versioneer.versionfile_source = 'xrd_transforms/_version.py'
+versioneer.versionfile_build = 'xrd_transforms/_version.py'
 versioneer.tag_prefix = 'xrd-transforms-v'
 versioneer.parentdir_prefix = 'xrd-transforms-v'
 
@@ -55,8 +55,11 @@ base_dependencies = [
     'numpy',
     ]
 
+# this are not required to run the packages, but are included to document its
+# potential usage
 optional_dependencies = [
-    'numba',
+    'numba', # some functions may be implemented in numba if available.
+    'pytest', # in order to run tests, use pytest.
     ]
 
 class test(Command):
@@ -85,7 +88,7 @@ class test(Command):
 cmdclass['test'] = test
 
 transforms_capi_extension = Extension(
-    'xrd-transforms._transforms_CAPI',
+    'xrd_transforms._transforms_CAPI',
     sources=glob.glob('src/*.c'),
     include_dirs=[numpy.get_include()],
     # extra_compile_args=['-std=99'],
@@ -93,17 +96,15 @@ transforms_capi_extension = Extension(
 
 _version = versioneer.get_version()
 
-print("Versioneer reports version as type ", type(_version), "value:\n", _version)
-
 setup(
-    name = 'xrd-transforms',
+    name = 'xrd_transforms',
     version = versioneer.get_version(True),
     author = 'The HEXRD Development Team',
     author_email = 'praxes@googlegroups.com',
     description = 'xrd transform utilities',
     long_description = open('README.md').read(),
     license = 'LGPLv2',
-    url = 'http://xrd-transforms.readthedocs.org',
+    url = 'http://xrd_transforms.readthedocs.org',
 
     install_requires = base_dependencies,
 

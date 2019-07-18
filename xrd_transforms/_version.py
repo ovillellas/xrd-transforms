@@ -14,8 +14,8 @@ git_full = "$Format:%H$"
 
 # these strings are filled in when 'setup.py versioneer' creates _version.py
 tag_prefix = "v"
-parentdir_prefix = "xrd-transforms"
-versionfile_source = "transforms/_version.py"
+parentdir_prefix = "xrd_transforms"
+versionfile_source = "xrd_transforms/_version.py"
 
 import os, sys, re, subprocess, errno
 

@@ -20,8 +20,6 @@ from __future__ import absolute_import, print_function
 import os
 import functools
 
-from .. import constants as cnst
-
 CHECK_API = os.getenv("XRD_TRANSFORMS_CHECK")
 try:
     from inspect import signature as get_signature
@@ -325,7 +323,7 @@ class DEF_angular_difference(DEF_Func):
 
     *) Default angular range is [-pi, pi]
     """
-    def _signature(ang_list0, ang_list1, units=cnst.angular_units):
+    def _signature(ang_list0, ang_list1, units=None):
         pass
 
 
@@ -333,14 +331,14 @@ class DEF_map_angle(DEF_Func):
     """
     Utility routine to map an angle into a specified period
 
-    actual function is map_angle(ang[, range], units=cnst.angular_units).
+    actual function is map_angle(ang[, range], units=None).
     range is optional and defaults to the appropriate angle for the unit
     centered on 0.
 
     accepted units are: 'radians' and 'degrees'
     """
 
-    def _signature(ang, range=None, units=cnst.angular_units):
+    def _signature(ang, range=None, units=None):
         pass
 
 
@@ -504,9 +502,16 @@ def xf_api(f):
     except KeyError:
         # This happens if there is no definition for the decorated function
         raise RuntimeError("'%s' definition not found." % api_call)
-    
+
     try:
-        if not (isinstance(fn_def.__doc__, basestring) and
+        # python 2
+        _string_type = basestring
+    except NameError:
+        # This will happen on python 3
+        _string_type = str
+        
+    try:
+        if not (isinstance(fn_def.__doc__, _string_type) and
                 callable(fn_def._PRECOND) and
                 callable(fn_def._POSTCOND) and
                 callable(fn_def._signature)):
@@ -522,13 +527,13 @@ def xf_api(f):
         #
         # _PRECOND and _POSTCOND will only be called if CHECK_API is enabled,
         # as they will slow down execution.
-        raise RuntimeError("'%s' definition error." % api_call)
+        raise RuntimeError("'{0}' definition error.".format(api_call))
 
     # Sanity check: make sure the decorated function has the expected signature.
     if get_signature is not None:
         # Check that the function has the right signature
         if get_signature(fn_def._signature) != get_signature(f):
-            raise RuntimeError("'%s' signature mismatch." % api_call)
+            raise RuntimeError("'{0}' signature mismatch.".format(api_call))
 
     # At this point use a wrapper that calls pre and post conditions if checking
     # is enabled, otherwise leave the function "as is".

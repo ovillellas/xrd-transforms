@@ -33,7 +33,7 @@ import numpy as np
 from numpy import float_ as npfloat
 from numpy import int_ as npint
 
-from .. import constants as cnst
+from . import constants as cnst
 from .transforms_definitions import xf_api
 
 # =============================================================================
@@ -501,8 +501,8 @@ def solve_omega(gvecs, chi, rmat_c, wavelength,
 # =============================================================================
 
 @xf_api
-def angular_difference(ang_list0, ang_list1, units=cnst.angular_units):
-    period = cnst.period_dict[units]
+def angular_difference(ang_list0, ang_list1, units=None):
+    period = cnst.period_for_unit(units)
     # take difference as arrays
     diffAngles = np.atleast_1d(ang_list0) - np.atleast_1d(ang_list1)
 
@@ -510,13 +510,8 @@ def angular_difference(ang_list0, ang_list1, units=cnst.angular_units):
 
 
 @xf_api
-def map_angle(ang, range=None, units=cnst.angular_units):
-
-    try:
-        period = cnst.period_dict(units)
-    except KeyError:
-        raise ValueError('Accepted units: %s'.format(','.join(cnst.period_dict.keys())))
-
+def map_angle(ang, range=None, units=None):
+    period = cnst.period_for_unit(units)
 
     ang = np.atleast_1d(npfloat(ang))
 
