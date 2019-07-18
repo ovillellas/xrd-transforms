@@ -56,6 +56,21 @@ def test_random_vectors(row_norm_impl, module_name):
 
 
 @all_impls
+def test_keep_dimensions(row_norm_impl, module_name):
+    # check that the case of a 2d array with a single vector is handled
+    # in a consistent way (reduces 1 dimension)
+    test_vec = np.array([[1.0, 0.0, 0.0]], dtype=np.double)
+
+    result = row_norm_impl(test_vec)
+
+    assert result.shape == (1,)
+
+    result2 = row_norm_impl(test_vec[0])
+
+    assert result2.shape == ()
+
+
+@all_impls
 def test_random_vectors_strided(row_norm_impl, module_name):
     # this is the same as test_random_vectors, but in a layout that forces
     # strided memory access for the inner dimension
@@ -65,16 +80,11 @@ def test_random_vectors_strided(row_norm_impl, module_name):
     for i in range(len(vecs)):
         result = row_norm_impl(vecs[i])
         expected = np.linalg.norm(vecs[i])
-        assert type(result) == type(expected)
-        assert result.dtype == expected.dtype
         assert_allclose(result, expected)
 
     # all in a row
     result = row_norm_impl(vecs)
     expected = np.linalg.norm(vecs, axis=1)
-    assert type(result) == type(expected)
-    assert result.dtype == expected.dtype
-
     assert_allclose(result, expected)
 
 
