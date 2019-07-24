@@ -32,10 +32,10 @@ import numpy as np
 
 @xf_api
 def angles_to_gvec(
-        angs, 
+        angs,
         beam_vec=None, eta_vec=None,
         chi=None, rmat_c=None):
-    # TODO: revise 
+    # TODO: revise
 
     beam_vec = beam_vec if beam_vec is not None else cnst.beam_vec
     eta_vec = eta_vec if eta_vec is not None else cnst.eta_vec
@@ -54,13 +54,13 @@ def angles_to_gvec(
 
 @xf_api
 def angles_to_dvec(
-        angs, 
+        angs,
         beam_vec=None, eta_vec=None,
         chi=None, rmat_c=None):
     # TODO: Improve capi to avoid multiplications when rmat_c is None
     beam_vec = beam_vec if beam_vec is not None else cnst.beam_vec
     eta_vec = eta_vec if eta_vec is not None else cnst.eta_vec
-    
+
     angs = np.ascontiguousarray( np.atleast_2d(angs) )
     beam_vec = np.ascontiguousarray( beam_vec.flatten() )
     eta_vec = np.ascontiguousarray( eta_vec.flatten() )
@@ -117,7 +117,7 @@ def xy_to_gvec(xy_d,
                output_ref=False):
     # in the C library beam vector and eta vector are expected. However we receive
     # rmat_b. Please check this!
-    # 
+    #
     # It also seems that the output_ref version is not present as the argument gets
     # ignored
 
@@ -140,7 +140,7 @@ def xy_to_gvec(xy_d,
     return _impl.detectorXYToGvec(xy_det,
                                              rmat_d, rmat_s,
                                              tvec_d, tvec_s, tvec_c,
-                                             beam_vec, eta_vec) 
+                                             beam_vec, eta_vec)
 
 
 
@@ -204,6 +204,8 @@ def make_rmat_of_expmap(exp_map):
 
 @xf_api
 def make_binary_rmat(axis):
+    if axis.shape != (3,):
+        raise ValueError('Axis input does not have 3 components')
     arg = np.ascontiguousarray(axis.flatten())
     return _impl.makeBinaryRotMat(arg)
 
@@ -235,5 +237,3 @@ def quat_distance(q1, q2, qsym):
     q1 = np.ascontiguousarray(q1.flatten())
     q2 = np.ascontiguousarray(q2.flatten())
     return _impl.quat_distance(q1, q2, qsym)
-
-

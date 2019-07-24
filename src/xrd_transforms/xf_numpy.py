@@ -633,7 +633,8 @@ def make_rmat_of_expmap(exp_map):
 
 @xf_api
 def make_binary_rmat(axis):
-    assert len(axis) == 3, 'Axis input does not have 3 components'
+    if axis.shape != (3,):
+        raise ValueError('Axis input does not have 3 components')
     return 2*np.outer(axis, axis) - cnst.identity_3x3
 
 

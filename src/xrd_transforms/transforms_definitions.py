@@ -391,6 +391,8 @@ class DEF_make_rmat_of_expmap(DEF_Func):
 class DEF_make_binary_rmat(DEF_Func):
     """
     make a binary rotation matrix about the specified axis
+
+    Used to compute the refracted vector wrt the axis.
     """
     def _signature(axis):
         pass
