@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 # install miniconda3... dependencies in tests are handled using conda.
 set -x -e
@@ -29,7 +29,7 @@ conda create -n "${CONDA_ENV}" -q -y ${PKG_SPEC}
 set -
 
 echo $PATH
-. activate "${CONDA_ENV}"
+. activate $CONDA_ENV
 echo $PATH
 
 # dump environment
