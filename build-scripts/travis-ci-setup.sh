@@ -1,7 +1,7 @@
 #!/bin/sh
 
 # install miniconda3... dependencies in tests are handled using conda.
-set -v -e
+set -x -e
 
 echo "${TRAVIS_OS_NAME}"
 
@@ -20,7 +20,7 @@ chmod u+x miniconda.sh
 ./miniconda.sh -b
 
 # setup conda environment
-PKG_SPEC="$PYTHON_SPEC $NUMPY_SPEC $NUMBA_SPEC pytest"
+PKG_SPEC=$PYTHON_SPEC $NUMPY_SPEC $NUMBA_SPEC pytest
 echo $PKG_SPEC
 
 conda remove --all -q -y -n $CONDA_ENV
