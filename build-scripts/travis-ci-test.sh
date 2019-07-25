@@ -5,7 +5,7 @@ set -x -e
 echo "${CONDA_ENV}"
 
 
-. activate "${CONDA_ENV}"
+$HOME/miniconda3/bin/activate "${CONDA_ENV}"
 
 conda env list
 
