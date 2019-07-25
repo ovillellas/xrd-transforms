@@ -18,9 +18,10 @@ branches:
         - master
 
 before_install:
-    build-scripts/travis-ci-setup.sh
+    - export PATH=$HOME/miniconda3/bin:$PATH
+    - build-scripts/travis-ci-setup.sh
 
 script:
-    build-scripts/travis-ci-test.sh
+    - build-scripts/travis-ci-test.sh
 
 

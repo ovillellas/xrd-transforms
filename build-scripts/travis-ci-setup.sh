@@ -19,8 +19,6 @@ wget $MINICONDA_PLATFORM_URL -O miniconda.sh
 chmod u+x miniconda.sh
 ./miniconda.sh -b
 
-export PATH=$HOME/miniconda3/bin:$PATH
-
 # setup conda environment
 PKG_SPEC="$PYTHON_SPEC $NUMPY_SPEC $NUMBA_SPEC pytest"
 echo $PKG_SPEC
