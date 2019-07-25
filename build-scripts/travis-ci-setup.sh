@@ -28,7 +28,7 @@ CONDA_INSTALL="conda install -q -y"
 
 conda remove --all -q -y -n $CONDA_ENV
 conda create -n $CONDA_ENV -q -y $PYTHON_SPEC $NUMPY_SPEC $NUMBA_SPEC
-conda activate $CONDA_ENV
+source activate $CONDA_ENV
 
 # dump environment
 echo "=========================  ENVIRONMENT  ========================="
