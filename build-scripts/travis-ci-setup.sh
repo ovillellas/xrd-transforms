@@ -27,9 +27,8 @@ conda remove --all -q -y -n "${CONDA_ENV}"
 conda create -n "${CONDA_ENV}" -q -y ${PKG_SPEC}
 
 
-$HOME/miniconda3/bin/activate "${CONDA_ENV}"
+. $HOME/miniconda3/bin/activate "${CONDA_ENV}"
 
-set -
 # dump environment
 echo "=========================  ENVIRONMENT  ========================="
 conda env export
