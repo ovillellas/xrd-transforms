@@ -4,7 +4,7 @@ set -x -e
 
 echo "${CONDA_ENV}"
 
-set -
+
 . activate "${CONDA_ENV}"
 
 conda env list
