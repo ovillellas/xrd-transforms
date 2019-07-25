@@ -2,8 +2,9 @@
 
 set -x -e
 
+set -
 . activate "${CONDA_ENV}"
 
-pushd ..
-make test
-popd
+set -x
+../make test
+
