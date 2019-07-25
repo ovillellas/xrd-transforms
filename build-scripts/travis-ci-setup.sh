@@ -20,15 +20,16 @@ chmod u+x miniconda.sh
 ./miniconda.sh -b
 
 # setup conda environment
-PKG_SPEC=$PYTHON_SPEC $NUMPY_SPEC $NUMBA_SPEC pytest
+PKG_SPEC="${PYTHON_SPEC}" "${NUMPY_SPEC}" "${NUMBA_SPEC}" pytest
 echo $PKG_SPEC
 
-conda remove --all -q -y -n $CONDA_ENV
-conda create -n $CONDA_ENV -q -y $PKG_SPEC
+conda remove --all -q -y -n "${CONDA_ENV}"
+conda create -n "${CONDA_ENV}" -q -y "${PKG_SPEC}"
 
-set +v
 
-. activate $CONDA_ENV
+. activate "${CONDA_ENV}"
+
+set -
 # dump environment
 echo "=========================  ENVIRONMENT  ========================="
 conda env export

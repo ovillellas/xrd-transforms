@@ -1,6 +1,8 @@
 #!/bin/sh
 
-. activate $CONDA_ENV
+set -x -e
+
+. activate "${CONDA_ENV}"
 
 pushd ..
 make test
