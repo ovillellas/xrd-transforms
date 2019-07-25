@@ -4,16 +4,11 @@ set -x -e
 
 echo "${CONDA_ENV}"
 
+echo $PATH
+. activate "${CONDA_ENV}"
 
-. $HOME/miniconda3/bin/activate "${CONDA_ENV}"
-
+echo $PATH
 conda env list
-
-set -x
-
-pwd
-
-ls
 
 make test
 

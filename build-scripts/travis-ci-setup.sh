@@ -26,8 +26,11 @@ echo $PKG_SPEC
 conda remove --all -q -y -n "${CONDA_ENV}"
 conda create -n "${CONDA_ENV}" -q -y ${PKG_SPEC}
 
+set -
 
-. $HOME/miniconda3/bin/activate "${CONDA_ENV}"
+echo $PATH
+. activate "${CONDA_ENV}"
+echo $PATH
 
 # dump environment
 echo "=========================  ENVIRONMENT  ========================="
