@@ -30,6 +30,7 @@ conda create -n $CONDA_ENV -q -y $PKG_SPEC
 
 set +v
 
+. activate $CONDA_ENV
 # dump environment
 echo "=========================  ENVIRONMENT  ========================="
 conda env export
