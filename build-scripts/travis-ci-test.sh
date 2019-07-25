@@ -6,5 +6,6 @@ set -
 . activate "${CONDA_ENV}"
 
 set -x
-../make test
+
+(cd ..; make test)
 
