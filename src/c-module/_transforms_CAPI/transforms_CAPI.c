@@ -1174,7 +1174,7 @@ MODULE_INIT_FUNC_NAME(void)
 #if defined(IS_PY3K)
     module = PyModule_Create(&moduledef);
 #else
-    module = Py_InitModule("_transforms_CAPI",_module_methods);
+    module = Py_InitModule(STR(THIS_MODULE_NAME),_module_methods);
 #endif
     if (NULL == module)
         MODULE_RETURN(module);
