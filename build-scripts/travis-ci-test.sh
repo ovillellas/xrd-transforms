@@ -2,11 +2,14 @@
 
 set -x -e
 
+echo "${CONDA_ENV}"
+
 set -
 . activate "${CONDA_ENV}"
 
-set -x
 conda env list
+
+set -x
 
 pwd
 
