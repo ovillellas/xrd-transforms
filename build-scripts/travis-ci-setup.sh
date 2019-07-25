@@ -26,8 +26,8 @@ export PATH=$HOME/miniconda3/bin:$PATH
 CONDA_ENV=travisci_test
 CONDA_INSTALL="conda install -q -y"
 
-PKG_SPEC=$PYTHON_SPEC $NUMPY_SPEC $NUMBA_SPEC pytest
-echo PKG_SPEC
+PKG_SPEC="$PYTHON_SPEC $NUMPY_SPEC $NUMBA_SPEC pytest"
+echo $PKG_SPEC
 
 conda remove --all -q -y -n $CONDA_ENV
 conda create -n $CONDA_ENV -q -y $PKG_SPEC
