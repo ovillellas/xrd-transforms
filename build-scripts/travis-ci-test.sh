@@ -8,5 +8,9 @@ set -
 set -x
 conda env list
 
-make -C .. test
+pwd
+
+ls
+
+make test
 
