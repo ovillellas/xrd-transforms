@@ -5,6 +5,9 @@ os:
     - osx
 
 env:
+  global:
+    - CONDA_ENV=travisci_test
+  matrix:
     - PYTHON_SPEC="python=3" NUMPY_SPEC="numpy" NUMBA_SPEC="numba"
     - PYTHON_SPEC="python=3" NUMPY_SPEC="numpy" NUMBA_SPEC=""
     - PYTHON_SPEC="python=2" NUMPY_SPEC="numpy" NUMBA_SPEC="numba"
@@ -18,6 +21,6 @@ before_install:
     build-scripts/travis-ci-setup.sh
 
 script:
-    make test
+    build-scripts/travis-ci-test.sh
 
 
