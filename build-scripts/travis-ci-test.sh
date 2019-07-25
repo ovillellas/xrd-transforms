@@ -6,6 +6,7 @@ set -
 . activate "${CONDA_ENV}"
 
 set -x
+conda env list
 
-(cd ..; make test)
+make -C .. test
 
