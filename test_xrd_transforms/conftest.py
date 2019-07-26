@@ -1,5 +1,13 @@
 
 
+# Python 2 support:
+# In Python 2 there is no ModuleNotFoundError. Use ImportError instead.
+try:
+    ModuleNotFoundError
+except NameError:
+    ModuleNotFoundError = ImportError
+
+
 def pytest_report_header(config):
     import numpy as np
 
