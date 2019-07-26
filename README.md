@@ -1,6 +1,8 @@
 xrd-transforms
 ==============
 
+[![Build Status](https://travis-ci.com/ovillellas/xrd-transforms.svg?branch=master)](https://travis-ci.com/ovillellas/xrd-transforms)
+
 Transforms code factored out of hexrd. Python 3 checked.
 
 Bear in mind this is **Work In Progress**
