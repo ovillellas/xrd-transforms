@@ -12,15 +12,26 @@ import math
 import numpy as np
 
 import xrd_transforms as xf
-from xrd_transforms import xf_numpy
-from xrd_transforms import xf_capi
-from xrd_transforms import xf_new_capi
-from xrd_transforms import xf_numba
 from xrd_transforms import constants as xf_cnst
+
+def function_implementations(api_func_name):
+    """returns a list of pairs (function, implementation_name) for all
+    implementations of the API function.
+
+    This is useful in parametrization of tests"""
+    
+    assert api_func_name in xf.API
+
+    impls = [(getattr(xf, api_func_name), 'default')]
+    for name, module in xf.implementations.items():
+        impl = getattr(module, api_func_name, None)
+        if impl is not None:
+            impls.append((impl, name))
+    
+    return impls
 
 
 ATOL_IDENTITY = 1e-10
-
 
 def convert_axis_angle_to_expmap(axis, angle):
     # expmap is just the normalized axis multiplied by the angle

@@ -6,20 +6,11 @@ import pytest
 import numpy as np
 from numpy.testing import assert_allclose
 
-from common import xf
-from common import xf_numpy
-from common import xf_capi
-from common import xf_new_capi
-from common import xf_numba
+from common import function_implementations
 
 
 all_impls = pytest.mark.parametrize('row_norm_impl, module_name',
-                                    [(xf_numpy.row_norm, 'numpy'),
-                                     #(xf_capi.row_norm, 'capi'),
-                                     #(xf_new_capi.row_norm, 'new_capi'),
-                                     (xf_numba.row_norm, 'numba'),
-                                     (xf.row_norm, 'default')]
-                                )
+                                    function_implementations('row_norm'))
 
 
 def _get_random_vectors_array():

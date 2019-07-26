@@ -4,20 +4,11 @@ from __future__ import absolute_import
 
 import pytest
 
-from common import xf
-from common import xf_numpy
-from common import xf_capi
-from common import xf_new_capi
-from common import xf_numba
+from common import function_implementations
 
 
 all_impls = pytest.mark.parametrize('angles_to_dvec_impl, module_name', 
-                                    [(xf_numpy.angles_to_dvec, 'numpy'),
-                                     (xf_capi.angles_to_dvec, 'capi'),
-                                     (xf_new_capi.angles_to_dvec, 'new_capi'),
-                                     (xf_numba.angles_to_dvec, 'numba'),
-                                     (xf.angles_to_dvec, 'default')]
-                                )
+                                    function_implementations('angles_to_dvec'))
 
 
 @all_impls

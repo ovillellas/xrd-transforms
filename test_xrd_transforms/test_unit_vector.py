@@ -7,20 +7,10 @@ import pytest
 import numpy as np
 from numpy.testing import assert_allclose
 
-from common import xf
-from common import xf_numpy
-from common import xf_capi
-from common import xf_new_capi
-from common import xf_numba
+from common import function_implementations
 
 all_impls = pytest.mark.parametrize('unit_vector_impl, module_name',
-                                    [(xf_numpy.unit_vector, 'numpy'),
-                                     (xf_capi.unit_vector, 'capi'),
-                                     (xf_new_capi.unit_vector, 'new_capi'),
-                                     (xf_numba.unit_vector, 'numba'),
-                                     (xf.unit_vector, 'default')]
-)
-
+                                    function_implementations('unit_vector'))
 
 def _get_random_vectors_array():
     # return a (n,3) array with some vectors and a (n) array with the expected

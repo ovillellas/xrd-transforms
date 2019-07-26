@@ -10,20 +10,12 @@ import pytest
 import numpy as np
 from numpy.testing import assert_allclose
 
-from common import xf
-from common import xf_numpy
-from common import xf_capi
-from common import xf_new_capi
-from common import xf_numba
+from common import function_implementations
 
 
 all_impls = pytest.mark.parametrize('make_binary_rmat_impl, module_name',
-                                    [(xf_numpy.make_binary_rmat, 'numpy'),
-                                     (xf_capi.make_binary_rmat, 'capi'),
-                                     (xf_new_capi.make_binary_rmat, 'new_capi'),
-                                     #(xf_numba.make_binary_rmat, 'numba'),
-                                     (xf.make_binary_rmat, 'default')]
-                                )
+                                    function_implementations('make_binary_rmat'))
+
 
 def reference(axis):
     # make_binary_rmat is basically the formula:

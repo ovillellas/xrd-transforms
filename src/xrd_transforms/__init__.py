@@ -9,25 +9,31 @@ import the specific submodule if you want to use a specific version.
 """
 from __future__ import absolute_import
 
-# While this may not be ideal, use an import line per API function.
+from collections import OrderedDict
 
-from .xf_numpy import angles_to_gvec
-from .xf_numpy import angles_to_dvec
-from .xf_numpy import gvec_to_xy
-from .xf_numpy import xy_to_gvec
-from .xf_numpy import solve_omega
+from .transforms_definitions import API
+from . import xf_numpy as numpy
+from . import xf_capi as capi
+from . import xf_new_capi as new_capi
+try:
+    from . import xf_numba as numba
+except ImportError:
+    numba = None
+    pass
 
-# utility functions
-from .xf_numpy import angular_difference
-from .xf_numpy import map_angle
-from .xf_numpy import row_norm
-from .xf_numpy import unit_vector
-from .xf_numpy import make_sample_rmat
-from .xf_numpy import make_rmat_of_expmap
-from .xf_numpy import make_binary_rmat
-from .xf_numpy import make_beam_rmat
-from .xf_numpy import angles_in_range
-from .xf_numpy import validate_angle_ranges
-from .xf_numpy import rotate_vecs_about_axis
-from .xf_numpy import quat_product_matrix
-from .xf_numpy import quat_distance
+implementations=OrderedDict()
+implementations["numpy"] = numpy
+implementations["capi"] = capi
+implementations["new_capi"] = new_capi
+
+if numba is not None:
+    implementations["numba"] = numba
+
+# assign default implementations of functions
+_default_implementations = { function: getattr(numpy, function)
+                             for function in API }
+
+# overrides can go here.
+globals().update(_default_implementations)
+del _default_implementations
+

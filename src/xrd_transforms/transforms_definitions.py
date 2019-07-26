@@ -20,6 +20,31 @@ from __future__ import absolute_import, print_function
 import os
 import functools
 
+# Just a list of the API functions...
+# Note this can be kind of redundant with the definition classes, but it also
+# allows for some coherence checks.
+API = (
+    "angles_to_gvec",
+    "angles_to_dvec",
+    "gvec_to_xy",
+    "xy_to_gvec",
+    "solve_omega",
+
+    "angular_difference",
+    "map_angle",
+    "row_norm",
+    "unit_vector",
+    "make_sample_rmat",
+    "make_rmat_of_expmap",
+    "make_binary_rmat",
+    "make_beam_rmat",
+    "angles_in_range",
+    "validate_angle_ranges",
+    "rotate_vecs_about_axis",
+    "quat_product_matrix",
+    "quat_distance"
+)
+
 CHECK_API = os.getenv("XRD_TRANSFORMS_CHECK")
 try:
     from inspect import signature as get_signature
@@ -500,10 +525,13 @@ class DEF_quat_distance(DEF_Func):
 # Decorator to mark implementations of the API. Names must match.
 # ==============================================================================
 
-def xf_api(f):
+def xf_api(f, name=None):
     """decorator to apply to the entry points of the transforms module"""
-    api_call = f.__name__
+    api_call = name if name is not None else f.__name__
 
+    if not api_call in API:
+        raise RuntimeError("'%s' is not part of the transforms API.")
+    
     try:
         fn_def = globals()['DEF_'+api_call]
     except KeyError:

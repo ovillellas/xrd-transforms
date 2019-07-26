@@ -4,18 +4,10 @@ from __future__ import absolute_import
 
 import pytest
 
-from common import xf
-from common import xf_numpy
-from common import xf_capi
-from common import xf_new_capi
-from common import xf_numba
+from common import function_implementations
 
-all_impls = pytest.mark.parametrize('angles_in_range_impl, module_name', 
-                                    [(xf_numpy.angles_in_range, 'numpy'),
-                                     #(xf_capi.angles_in_range, 'capi'),
-                                     #(xf_new_capi.angles_in_range, 'new_capi'),
-                                     #(xf_numba.angles_to_gvec, 'numba'),
-                                     (xf.angles_in_range, 'default')]
+all_impls = pytest.mark.parametrize('angles_in_range_impl, module_name',
+                                    function_implementations('angles_in_range')
                                 )
 
 

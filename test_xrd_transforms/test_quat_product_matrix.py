@@ -4,20 +4,11 @@ from __future__ import absolute_import
 
 import pytest
 
-from common import xf
-from common import xf_numpy
-from common import xf_capi
-from common import xf_new_capi
-from common import xf_numba
+from common import function_implementations
 
 
 all_impls = pytest.mark.parametrize('quat_product_matrix_impl, module_name', 
-                                    [(xf_numpy.quat_product_matrix, 'numpy'),
-                                     #(xf_capi.quat_product_matrix, 'capi'),
-                                     #(xf_new_capi.quat_product_matrix, 'new_capi'),
-                                     #(xf_numba.angles_to_gvec, 'numba'),
-                                     (xf.quat_product_matrix, 'default')]
-                                )
+                                    function_implementations('quat_product_matrix'))
 
 
 @all_impls

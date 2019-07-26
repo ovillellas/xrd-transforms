@@ -4,20 +4,10 @@ from __future__ import absolute_import
 
 import pytest
 
-from common import xf
-from common import xf_numpy
-from common import xf_capi
-from common import xf_new_capi
-from common import xf_numba
-
+from common import function_implementations
 
 all_impls = pytest.mark.parametrize('rotate_vecs_about_axis_impl, module_name', 
-                                    [(xf_numpy.rotate_vecs_about_axis, 'numpy'),
-                                     (xf_capi.rotate_vecs_about_axis, 'capi'),
-                                     (xf_new_capi.rotate_vecs_about_axis, 'new_capi'),
-                                     #(xf_numba.rotate_vecs_about_axis, 'numba'),
-                                     (xf.rotate_vecs_about_axis, 'default')]
-                                )
+                                    function_implementations('rotate_vecs_about_axis'))
 
 
 @all_impls

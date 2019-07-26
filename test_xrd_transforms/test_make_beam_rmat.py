@@ -7,22 +7,13 @@ import pytest
 import numpy as np
 from numpy.testing import assert_allclose
 
-from common import xf
-from common import xf_numpy
-from common import xf_capi
-from common import xf_new_capi
-from common import xf_numba
+from common import function_implementations
 from common import xf_cnst
 
 ATOL_IDENTITY = 1e-10
 
 all_impls = pytest.mark.parametrize('make_beam_rmat_impl, module_name',
-                                    [(xf_numpy.make_beam_rmat, 'numpy'),
-                                     (xf_capi.make_beam_rmat, 'capi'),
-                                     (xf_new_capi.make_beam_rmat, 'new_capi'),
-                                     (xf_numba.make_beam_rmat, 'numba'),
-                                     (xf.make_beam_rmat, 'default')]
-                                )
+                                    function_implementations('make_beam_rmat'))
 
 # ------------------------------------------------------------------------------
 

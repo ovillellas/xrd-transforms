@@ -51,8 +51,12 @@ from . import constants as cnst
 from .transforms_definitions import xf_api, get_signature
 from .xf_numpy import _beam_to_crystal
 
-
-import numba
+try:
+    import numba
+except ImportError:
+    # Numba is an optional dependency. Any code relying on numba should be
+    # optional
+    raise ImportError("xf_numba not available: numba not installed")
 
 # Use the following decorator instead of numba.jit for interface functions.
 # This is so we can patch certain features.

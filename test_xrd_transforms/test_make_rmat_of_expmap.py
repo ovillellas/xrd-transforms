@@ -7,11 +7,7 @@ import pytest
 import numpy as np
 from numpy.testing import assert_allclose
 
-from common import xf
-from common import xf_numpy
-from common import xf_capi
-from common import xf_new_capi
-from common import xf_numba
+from common import function_implementations
 
 from common import xf_cnst
 from common import ATOL_IDENTITY
@@ -19,12 +15,7 @@ from common import convert_axis_angle_to_expmap
 from common import convert_axis_angle_to_rmat
 
 all_impls = pytest.mark.parametrize('make_rmat_of_expmap_impl, module_name',
-                                    [(xf_numpy.make_rmat_of_expmap, 'numpy'),
-                                     (xf_capi.make_rmat_of_expmap, 'capi'),
-                                     (xf_capi.make_rmat_of_expmap, 'new_capi'),
-                                     (xf_numba.make_rmat_of_expmap, 'numba'),
-                                     (xf.make_rmat_of_expmap, 'default')]
-                                )
+                                    function_implementations('make_rmat_of_expmap'))
 
 
 @pytest.fixture(scope="module")
