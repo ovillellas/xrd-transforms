@@ -35,9 +35,13 @@ def angles_to_gvec(
         angs,
         beam_vec=None, eta_vec=None,
         chi=None, rmat_c=None):
-    # TODO: revise
     orig_ndim = angs.ndim
 
+    # if only a pair is provided... converto to a triplet with omegas == 0
+    # so that behavior is preserved.
+    if angs.shape[-1] == 2:
+        angs = np.hstack((angs, np.zeros(angs.shape[:-1]+(1,))))
+        
     angs = np.ascontiguousarray( np.atleast_2d(angs) )
     beam_vec = beam_vec if beam_vec is not None else cnst.beam_vec
     beam_vec = np.ascontiguousarray( beam_vec.flatten() )

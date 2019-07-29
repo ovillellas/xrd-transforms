@@ -32,20 +32,23 @@ import numpy as np
 
 @xf_api
 def angles_to_gvec(
-        angs, 
+        angs,
         beam_vec=None, eta_vec=None,
         chi=None, rmat_c=None):
-    # TODO: revise 
-
-    beam_vec = beam_vec if beam_vec is not None else cnst.beam_vec
-    eta_vec = eta_vec if eta_vec is not None else cnst.eta_vec
-
     orig_ndim = angs.ndim
+
+    # if only a pair is provided... converto to a triplet with omegas == 0
+    # so that behavior is preserved.
+    if angs.shape[-1] == 2:
+        angs = np.hstack((angs, np.zeros(angs.shape[:-1]+(1,))))
+        
     angs = np.ascontiguousarray( np.atleast_2d(angs) )
+    beam_vec = beam_vec if beam_vec is not None else cnst.beam_vec
     beam_vec = np.ascontiguousarray( beam_vec.flatten() )
+    eta_vec = eta_vec if eta_vec is not None else cnst.eta_vec
     eta_vec = np.ascontiguousarray( eta_vec.flatten() )
-    rmat_c = cnst.identity_3x3 if rmat_c is None else np.ascontiguousarray( rmat_c )
     chi = 0.0 if chi is None else float(chi)
+    rmat_c = cnst.identity_3x3 if rmat_c is None else np.ascontiguousarray( rmat_c )
 
     result = _impl.anglesToGVec(angs, beam_vec, eta_vec, chi, rmat_c)
 

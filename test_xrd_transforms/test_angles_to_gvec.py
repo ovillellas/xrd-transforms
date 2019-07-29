@@ -14,7 +14,7 @@ all_impls = pytest.mark.parametrize('angles_to_gvec_impl, module_name',
                                 )
 
 @all_impls
-def test_simple(angles_to_gvec_impl, module_name):
+def test_simple_pair(angles_to_gvec_impl, module_name):
     bHat = np.r_[0.0, 0.0, -1.0]
     eHat = np.r_[1.0, 0.0, 0.0]
     angs = np.array([np.pi, 0.0], dtype= np.double)
@@ -28,3 +28,20 @@ def test_simple(angles_to_gvec_impl, module_name):
     res = angles_to_gvec_impl(np.atleast_2d(angs), bHat, eHat)
     np_testing.assert_almost_equal(res, np.atleast_2d(expected))
 
+@all_impls
+def test_simple_triplet(angles_to_gvec_impl, module_name):
+    bHat = np.r_[0.0, 0.0, -1.0]
+    eHat = np.r_[1.0, 0.0, 0.0]
+    angs = np.array([np.pi, 0.0, 0.0], dtype= np.double)
+    expected = np.r_[0.0, 0.0, 1.0]
+
+    # single entry codepath
+    res = angles_to_gvec_impl(angs, bHat, eHat)
+    np_testing.assert_almost_equal(res, expected)
+
+    # vector codepath (should return dimensions accordingly)
+    res = angles_to_gvec_impl(np.atleast_2d(angs), bHat, eHat)
+    np_testing.assert_almost_equal(res, np.atleast_2d(expected))
+
+
+    
