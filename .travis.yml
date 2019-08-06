@@ -17,9 +17,7 @@ env:
 matrix:
   fast_finish: true
   allow_failures:
-    - PYTHON_SPEC="python=3" NUMPY_SPEC="numpy" NUMBA_SPEC=""
-    - PYTHON_SPEC="python=2" NUMPY_SPEC="numpy" NUMBA_SPEC=""
-
+    - os: windows
 
 branches:
   only:
