@@ -3,6 +3,7 @@ language: minimal
 os:
   - linux
   - osx
+  - windows
 
 env:
   global:

@@ -9,6 +9,8 @@ if [ "${TRAVIS_OS_NAME}" = "linux" ]; then
     MINICONDA_PLATFORM_URL=https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh
 elif [ "${TRAVIS_OS_NAME}" = "osx" ]; then
     MINICONDA_PLATFORM_URL=https://repo.continuum.io/miniconda/Miniconda3-latest-MacOSX-x86_64.sh
+elif [ "${TRAVIS_OS_NAME}" = "windows" ]; then
+    MINICONDA_PLATFORM_URL=https://repo.continuum.io/miniconda/Miniconda3-latest-Windows-x86_64.sh
 else
     echo "Unsupported platform \"$TRAVIS_OS_NAME\". Check matrix/scripts."
     exit 1
