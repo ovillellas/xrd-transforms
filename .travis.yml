@@ -10,14 +10,17 @@ env:
     - CONDA_ENV=travisci_test
   matrix:
     - PYTHON_SPEC="python=3" NUMPY_SPEC="numpy" NUMBA_SPEC="numba"
-    - PYTHON_SPEC="python=2" NUMPY_SPEC="numpy" NUMBA_SPEC="numba"
-    - PYTHON_SPEC="python=3" NUMPY_SPEC="numpy" NUMBA_SPEC=""
-    - PYTHON_SPEC="python=2" NUMPY_SPEC="numpy" NUMBA_SPEC=""
+#    - PYTHON_SPEC="python=2" NUMPY_SPEC="numpy" NUMBA_SPEC="numba"
+#    - PYTHON_SPEC="python=3" NUMPY_SPEC="numpy" NUMBA_SPEC=""
+#    - PYTHON_SPEC="python=2" NUMPY_SPEC="numpy" NUMBA_SPEC=""
 
 matrix:
   fast_finish: true
   allow_failures:
     - os: windows
+  include:
+    - os: linux
+    - env: PYTHON_SPEC="python=3" NUMPY_SPEC="numpy" NUMBA_SPEC=""
 
 branches:
   only:
