@@ -2,6 +2,7 @@
 #if !defined(XRD_SINGLE_COMPILE_UNIT) || !XRD_SINGLE_COMPILE_UNIT
 #  include "transforms_utils.h"
 #  include "transforms_prototypes.h"
+#  include "checks.h"
 #endif
 
 
@@ -72,59 +73,57 @@ XRD_PYTHON_WRAPPER const char *docstring_makeEtaFrameRotMat =
 XRD_PYTHON_WRAPPER PyObject *
 python_makeEtaFrameRotMat(PyObject * self, PyObject * args)
 {
-    PyArrayObject *bHat, *eHat, *rMat=NULL;
-    int db, de;
-    npy_intp nb, ne, dims[2];
-    double *bPtr, *ePtr, *rPtr;
-    int errcode;
+    PyObject *rMat=NULL;
+    npy_intp dims[2];
+    named_vector3 b = { "bvec_l", NULL };
+    named_vector3 e = { "evec_l", NULL };
+    double *rPtr;
+    int errcode = 0;
 
     /* Parse arguments */
-    if ( !PyArg_ParseTuple(args,"OO", &bHat,&eHat)) return(NULL);
-    if ( bHat  == NULL || eHat == NULL ) return(NULL);
-
-    /* Verify shape of input arrays */
-    db = PyArray_NDIM(bHat);
-    de = PyArray_NDIM(eHat);
-    assert( db == 1 && de == 1);
-
-    /* Verify dimensions of input arrays */
-    nb = PyArray_DIMS(bHat)[0];
-    ne = PyArray_DIMS(eHat)[0];
-    assert( nb == 3 && ne == 3 );
+    if ( !PyArg_ParseTuple(args, "O&O&",
+                           vector3_converter, &b,
+                           vector3_converter, &e))
+        goto fail;
 
     /* Allocate the result matrix with appropriate dimensions and type */
     dims[0] = 3; dims[1] = 3;
-    rMat = (PyArrayObject*)PyArray_EMPTY(2,dims,NPY_DOUBLE,0);
-
+    rMat = PyArray_EMPTY(2, dims, NPY_FLOAT64, 0);
     if (rMat == NULL)
         goto fail;
 
-    /* Grab pointers to the various data arrays */
-    bPtr = (double*)PyArray_DATA(bHat);
-    ePtr = (double*)PyArray_DATA(eHat);
     rPtr = (double*)PyArray_DATA(rMat);
 
     /* Call the actual function */
-    errcode = make_beam_rmat(bPtr, ePtr, rPtr);
+    errcode = make_beam_rmat(b.data, e.data, rPtr);
 
-    if (errcode == 0) {
-        /* No error, return the matrix */
-        return((PyObject*)rMat);
-    } /* else ... fall back to fail code, but generating the appropriate error before */
+    if (0 == errcode)
+        goto done;
 
     switch (errcode) {
-    case TF_MAKE_BEAM_RMAT_ERR_BEAM_ZERO: /* beam vec is zero (within an epsilon) */
-        PyErr_SetString(PyExc_RuntimeError, "bvec_l MUST NOT be ZERO!");
-        break;
-    case TF_MAKE_BEAM_RMAT_ERR_COLLINEAR: /* beam vec and eta vec are collinear */
-        PyErr_SetString(PyExc_RuntimeError, "bvec_l and evec_l MUST NOT be collinear!");
-        break;
+    case TF_MAKE_BEAM_RMAT_ERR_BEAM_ZERO:
+        /* beam vec is zero (within an epsilon) */
+        raise_runtime_error("bvec_l MUST NOT be ZERO!");
+        goto fail;
+    case TF_MAKE_BEAM_RMAT_ERR_COLLINEAR:
+        /* beam vec and eta vec are collinear */
+        raise_runtime_error("bvec_l and evec_l MUST NOT be collinear!");
+        goto fail;
+    default:
+        /* this should not really happen, unless code has been modified in the
+           C func to support another error status whose handling wasn't added
+           here */
+        raise_runtime_error("Unexpected error");
+        goto fail;
     }
 
  fail:
     /* Free the array if allocated, since it won't be returned */
     Py_XDECREF(rMat);
-    return NULL;
+    rMat = NULL;
+    
+ done:
+    return rMat;
 }
 
 

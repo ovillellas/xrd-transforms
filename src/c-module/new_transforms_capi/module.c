@@ -58,6 +58,7 @@
 #include "transforms_types.h"
 #include "transforms_utils.h"
 #include "transforms_prototypes.h"
+#include "checks.h"
 
 #include "angles_to_gvec.c"
 #include "angles_to_dvec.c"
