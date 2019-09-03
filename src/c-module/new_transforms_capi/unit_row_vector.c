@@ -12,9 +12,10 @@ unit_row_vector(size_t n, double * cIn, double * cOut)
     double nrm;
 
     nrm = 0.0;
-    for (j=0; j<n; j++) {
+    for (j = 0; j < n; j++) {
         nrm += cIn[j]*cIn[j];
     }
+
     nrm = sqrt(nrm);
     if ( nrm > epsf ) {
         for (j=0; j<n; j++) {
@@ -74,63 +75,42 @@ XRD_PYTHON_WRAPPER const char *docstring_unitRowVectors =
 XRD_PYTHON_WRAPPER PyObject *
 python_unitRowVector(PyObject * self, PyObject * args)
 {
-    PyArrayObject *vecIn, *vecOut;
-    double *cIn, *cOut;
-    int d;
-    npy_intp n;
+    PyArrayObject *aop_out;
+    named_array_1d in = { "vecIn", NULL };
+    npy_intp out_dims[1];
+    
+    if ( !PyArg_ParseTuple(args,"O&",
+                           array_1d_converter, &in) )
+        return(NULL);
 
-    if ( !PyArg_ParseTuple(args,"O", &vecIn)) return(NULL);
-    if ( vecIn  == NULL ) return(NULL);
+    out_dims[0] = (npy_intp)in.count;
+    aop_out = (PyArrayObject*)PyArray_EMPTY(1, out_dims, NPY_DOUBLE, 0);
 
-    assert( PyArray_ISCONTIGUOUS(vecIn) );
-    assert( PyArray_ISALIGNED(vecIn) );
+    unit_row_vector(in.count, in.data, (double *)PyArray_DATA(aop_out));
 
-    d = PyArray_NDIM(vecIn);
-
-    assert(d == 1);
-
-    n = PyArray_DIMS(vecIn)[0];
-
-    vecOut = (PyArrayObject*)PyArray_EMPTY(d,PyArray_DIMS(vecIn),NPY_DOUBLE,0);
-
-    cIn  = (double*)PyArray_DATA(vecIn);
-    cOut = (double*)PyArray_DATA(vecOut);
-
-    unit_row_vector(n,cIn,cOut);
-
-    return((PyObject*)vecOut);
+    return (PyObject*)aop_out;
 }
 
 
 XRD_PYTHON_WRAPPER PyObject *
 python_unitRowVectors(PyObject *self, PyObject *args)
 {
-    PyArrayObject *vecIn, *vecOut;
-    double *cIn, *cOut;
-    int d;
-    npy_intp m,n;
+    PyArrayObject *aop_out;
+    named_array_2d in = { "vecIn", NULL };
+    npy_intp out_dims[2];
 
-    if ( !PyArg_ParseTuple(args,"O", &vecIn)) return(NULL);
-    if ( vecIn  == NULL ) return(NULL);
+    if ( !PyArg_ParseTuple(args, "O&",
+                           array_2d_converter, &in) )
+        return(NULL);
 
-    assert( PyArray_ISCONTIGUOUS(vecIn) );
-    assert( PyArray_ISALIGNED(vecIn) );
+    out_dims[0] = (npy_intp)in.outer_count;
+    out_dims[1] = (npy_intp)in.inner_count;
+    aop_out = (PyArrayObject*)PyArray_EMPTY(2, out_dims, NPY_DOUBLE, 0);
 
-    d = PyArray_NDIM(vecIn);
+    unit_row_vectors(in.outer_count, in.inner_count, in.data,
+                     (double *)PyArray_DATA(aop_out));
 
-    assert(d == 2);
-
-    m = PyArray_DIMS(vecIn)[0];
-    n = PyArray_DIMS(vecIn)[1];
-
-    vecOut = (PyArrayObject*)PyArray_EMPTY(d,PyArray_DIMS(vecIn),NPY_DOUBLE,0);
-
-    cIn  = (double*)PyArray_DATA(vecIn);
-    cOut = (double*)PyArray_DATA(vecOut);
-
-    unit_row_vectors(m,n,cIn,cOut);
-
-    return((PyObject*)vecOut);
+    return (PyObject*)aop_out;
 }
 
 
