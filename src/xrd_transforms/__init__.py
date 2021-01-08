@@ -21,6 +21,11 @@ except ImportError:
     numba = None
     pass
 
+
+# The code below is useful for automated testing as it allows:
+# - Enumerate the different implementations
+# - Access implementations "by name"
+
 implementations=OrderedDict()
 implementations["numpy"] = numpy
 implementations["capi"] = capi
@@ -29,11 +34,15 @@ implementations["new_capi"] = new_capi
 if numba is not None:
     implementations["numba"] = numba
 
-# assign default implementations of functions
+# assign default implementations for the functions.
+# by default use the "numpy" implementations.
 _default_implementations = { function: getattr(numpy, function)
                              for function in API }
+# it is possible to override some functions by patching them before applying
+# the update. Something like:
+#
+# _default_implementations['angles_to_gvec'] = capi.angles_to_gvec
 
-# overrides can go here.
 globals().update(_default_implementations)
 del _default_implementations
 
