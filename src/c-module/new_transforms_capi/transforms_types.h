@@ -1,6 +1,15 @@
 #ifndef XRD_TRANSFORMS_TYPES_H
 #define XRD_TRANSFORMS_TYPES_H
 
+#if __STDC_VERSION__ >= 199901L
+/* in C99 we got "inline" and "restrict" */
+#else
+/* not C99, ignore inline and restrict */
+#  define inline
+#  define restrict
+#endif
+
+
 #define _USE_MATH_DEFINES
 #include <math.h>
 #include <float.h>

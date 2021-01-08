@@ -129,15 +129,16 @@ typedef struct {
 } named_matrix33_array;
 
 
-static int
+static inline int
 array_1d_converter(PyObject *op, void *result)
 {
     named_array_1d *res = (named_array_1d *) result;
 
     if (is_valid_array(op, 1))
     {
-        res->data = PyArray_DATA(op);
-        res->count = (size_t)PyArray_SHAPE(op)[0];
+        PyArrayObject *ap = (PyArrayObject*)op;
+        res->data = PyArray_DATA(ap);
+        res->count = (size_t)PyArray_SHAPE(ap)[0];
         return 1;
     }
     else
@@ -150,16 +151,17 @@ array_1d_converter(PyObject *op, void *result)
 }
 
 
-static int
+static inline int
 array_2d_converter(PyObject *op, void *result)
 {
     named_array_2d *res = (named_array_2d *) result;
 
     if (is_valid_array(op, 2))
     {
-        res->data = PyArray_DATA(op);
-        res->inner_count = (size_t)PyArray_SHAPE(op)[1];
-        res->outer_count = (size_t)PyArray_SHAPE(op)[0];
+        PyArrayObject *ap = (PyArrayObject*)op;
+        res->data = PyArray_DATA(ap);
+        res->inner_count = (size_t)PyArray_SHAPE(ap)[1];
+        res->outer_count = (size_t)PyArray_SHAPE(ap)[0];
         return 1;
     }
     else
@@ -172,14 +174,15 @@ array_2d_converter(PyObject *op, void *result)
 }
 
 
-static int
+static inline int
 vector3_converter(PyObject *op, void *result)
 {
     named_vector3 *res = (named_vector3 *) result;
 
     if (is_valid_vector(op, 3))
     {
-        res->data = PyArray_DATA(op);
+        PyArrayObject *ap = (PyArrayObject *)op;
+        res->data = PyArray_DATA(ap);
         return 1;
     }
     else
@@ -191,15 +194,16 @@ vector3_converter(PyObject *op, void *result)
     }
 }
 
-static int
+static inline int
 vector3_array_converter(PyObject *op, void *result)
 {
     named_vector3_array *res = (named_vector3_array *) result;
 
     if (is_valid_vector_array(op, 3))
     {
-        res->data = PyArray_DATA(op);
-        res->count = (size_t)PyArray_SHAPE(op)[0];
+        PyArrayObject *ap = (PyArrayObject *)op;
+        res->data = PyArray_DATA(ap);
+        res->count = (size_t)PyArray_SHAPE(ap)[0];
         return 1;
     }
     else
@@ -211,14 +215,15 @@ vector3_array_converter(PyObject *op, void *result)
     }
 }
 
-static int
+static inline int
 matrix33_converter(PyObject *op, void *result)
 {
     named_matrix33 *res = (named_matrix33 *) result;
 
     if (is_valid_matrix(op, 3, 3))
     {
-        res->data = PyArray_DATA(op);
+        PyArrayObject *ap = (PyArrayObject *) op;
+        res->data = PyArray_DATA(ap);
         return 1;
     }
     else
@@ -230,15 +235,16 @@ matrix33_converter(PyObject *op, void *result)
     }
 }
 
-static int
+static inline int
 matrix33_array_converter(PyObject *op, void *result)
 {
     named_matrix33_array *res = (named_matrix33_array *) result;
 
     if (is_valid_matrix(op, 3, 3))
     {
-        res->data = PyArray_DATA(op);
-        res->count = (size_t)PyArray_SHAPE(op)[0];
+        PyArrayObject *ap = (PyArrayObject *)op;
+        res->data = PyArray_DATA(ap);
+        res->count = (size_t)PyArray_SHAPE(ap)[0];
         return 1;
     }
     else

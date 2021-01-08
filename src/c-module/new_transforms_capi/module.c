@@ -52,13 +52,16 @@
  */
 #define XRD_SINGLE_COMPILE_UNIT 1
 #define XRD_INCLUDE_PYTHON_WRAPPERS 1
-#define XRD_CFUNCTION static
+#define XRD_TASK_SYSTEM 1
+#define XRD_CFUNCTION static inline
 #define XRD_PYTHON_WRAPPER static
 
 #include "transforms_types.h"
 #include "transforms_utils.h"
 #include "transforms_prototypes.h"
 #include "checks.h"
+#include "transforms_task_system.h"
+
 
 #include "angles_to_gvec.c"
 #include "angles_to_dvec.c"
@@ -76,6 +79,9 @@
 #include "quat_distance.c"
 
 
+/* TEST TEST TEST TEST */
+#include "transforms_task_libdispatch.c"
+
 
 /* =============================================================================
  * Module initialization
@@ -85,56 +91,27 @@
 /*#define EXPORT_METHOD(name)                                           \
     { STR(name), CONCAT(python_, name), METH_VARARGS, CONCAT(docstring_, name) }
 */
-#define EXPORT_METHOD(name) \
+#define EXPORT_METHOD_VA(name) \
     { STR(name), CONCAT(python_, name), METH_VARARGS, "" }
 
 static PyMethodDef _module_methods[] = {
-    EXPORT_METHOD(anglesToGVec), /* angles_to_gvec */
-    EXPORT_METHOD(anglesToDVec), /* angles_to_dvec */
-    EXPORT_METHOD(gvecToDetectorXY),  /* gvec_to_xy */
-    EXPORT_METHOD(gvecToDetectorXYArray), /* gvec_to_xy */
-    EXPORT_METHOD(detectorXYToGvec), /* xy_to_gvec */
-    EXPORT_METHOD(oscillAnglesOfHKLs), /* solve_omega */
-    EXPORT_METHOD(unitRowVector), /* unit_vector */
-    EXPORT_METHOD(unitRowVectors), /* unit_vector */
-    EXPORT_METHOD(makeOscillRotMat), /* make_sample_rmat */
-    EXPORT_METHOD(makeOscillRotMatArray), /* make_sample_rmat */
-    EXPORT_METHOD(makeRotMatOfExpMap), /* make_rmat_of_expmap */
-    EXPORT_METHOD(makeBinaryRotMat), /* make_binary_rmat */
-    EXPORT_METHOD(makeEtaFrameRotMat), /* make_beam_rmat */
-    EXPORT_METHOD(validateAngleRanges), /* validate_angle_ranges */
-    EXPORT_METHOD(rotate_vecs_about_axis), /* rotate_vecs_about_axis */
-    EXPORT_METHOD(quat_distance), /* quat_distance */
-    /* adapted */
-    /*  {"anglesToGVec",anglesToGVec,METH_VARARGS,"take angle tuples to G-vectors"},*/
-    /*  {"anglesToDVec",anglesToDVec,METH_VARARGS,"take angle tuples to unit diffraction vectors"},*/
-    /*  {"gvecToDetectorXY",gvecToDetectorXY,METH_VARARGS,""},*/
-    /*  {"gvecToDetectorXYArray",gvecToDetectorXYArray,METH_VARARGS,""},*/
-    /*  {"detectorXYToGvec",detectorXYToGvec,METH_VARARGS,"take cartesian coordinates to G-vectors"},*/
-    /*  {"oscillAnglesOfHKLs",oscillAnglesOfHKLs,METH_VARARGS,"solve angle specs for G-vectors"},*/
-    /*  {"unitRowVector",unitRowVector,METH_VARARGS,"Normalize a single row vector"},*/
-    /*  {"unitRowVectors",unitRowVectors,METH_VARARGS,"Normalize a collection of row vectors"},*/
-    /*  {"makeOscillRotMat",makeOscillRotMat,METH_VARARGS,""},*/
-    /*  {"makeOscillRotMatArray",makeOscillRotMatArray,METH_VARARGS,""},*/
-    /*  {"makeRotMatOfExpMap",makeRotMatOfExpMap,METH_VARARGS,""},*/
-    /*  {"makeBinaryRotMat",makeBinaryRotMat,METH_VARARGS,""},*/
-    /*  {"makeEtaFrameRotMat",makeEtaFrameRotMat,METH_VARARGS,"Make eta basis COB matrix"},*/
-    /*  {"validateAngleRanges",validateAngleRanges,METH_VARARGS,""}, */
-    /*  {"rotate_vecs_about_axis",rotate_vecs_about_axis,METH_VARARGS,"Rotate vectors about an axis"},*/
-    /*  {"quat_distance",quat_distance,METH_VARARGS,"Compute distance between two unit quaternions"},*/
+    EXPORT_METHOD_VA(anglesToGVec), /* angles_to_gvec */
+    EXPORT_METHOD_VA(anglesToDVec), /* angles_to_dvec */
+    EXPORT_METHOD_VA(gvecToDetectorXY),  /* gvec_to_xy */
+    EXPORT_METHOD_VA(gvecToDetectorXYArray), /* gvec_to_xy */
+    EXPORT_METHOD_VA(detectorXYToGvec), /* xy_to_gvec */
+    EXPORT_METHOD_VA(oscillAnglesOfHKLs), /* solve_omega */
+    EXPORT_METHOD_VA(unitRowVector), /* unit_vector */
+    EXPORT_METHOD_VA(unitRowVectors), /* unit_vector */
+    EXPORT_METHOD_VA(makeOscillRotMat), /* make_sample_rmat */
+    EXPORT_METHOD_VA(makeOscillRotMatArray), /* make_sample_rmat */
+    EXPORT_METHOD_VA(makeRotMatOfExpMap), /* make_rmat_of_expmap */
+    EXPORT_METHOD_VA(makeBinaryRotMat), /* make_binary_rmat */
+    EXPORT_METHOD_VA(makeEtaFrameRotMat), /* make_beam_rmat */
+    EXPORT_METHOD_VA(validateAngleRanges), /* validate_angle_ranges */
+    EXPORT_METHOD_VA(rotate_vecs_about_axis), /* rotate_vecs_about_axis */
+    EXPORT_METHOD_VA(quat_distance), /* quat_distance */
 
-    /* adapted but not part of the API, so not exported */
-    /*  {"makeDetectorRotMat",makeDetectorRotMat,METH_VARARGS,""},*/
-    
-    /* removed... */
-    /*  {"makeGVector",makeGVector,METH_VARARGS,"Make G-vectors from hkls and B-matrix"},*/
-    /*  {"arccosSafe",arccosSafe,METH_VARARGS,""},*/
-    /*  {"angularDifference",angularDifference,METH_VARARGS,"difference for cyclical angles"},*/
-    /*  {"mapAngle",mapAngle,METH_VARARGS,"map cyclical angles to specified range"},*/
-    /*  {"columnNorm",columnNorm,METH_VARARGS,""},*/
-    /*  {"rowNorm",rowNorm,METH_VARARGS,""},*/
-    /*  {"makeRotMatOfQuat",makeRotMatOfQuat,METH_VARARGS,""},*/
-    /*  {"homochoricOfQuat",homochoricOfQuat,METH_VARARGS,"Compute homochoric parameterization of list of unit quaternions"},*/
     {NULL,NULL,0,NULL} /* sentinel */
 };
 
