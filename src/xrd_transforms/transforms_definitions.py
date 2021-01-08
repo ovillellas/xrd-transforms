@@ -159,7 +159,7 @@ class DEF_gvec_to_xy(DEF_Func):
         The (3, 3) COB matrix taking components in the
         RECIPROCAL LATTICE FRAME to the CRYSTAL FRAME; if supplied, it is
         assumed that the input `gvecs` are G-vector components in the
-        RECIPROCL LATTICE FRAME (the default is None, which implies components
+        RECIPROCAL LATTICE FRAME (the default is None, which implies components
         in the CRYSTAL FRAME)
 
     Returns
