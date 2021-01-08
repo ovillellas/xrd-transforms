@@ -265,7 +265,7 @@ def angles_to_dvec(
     rmat_s = None
     if dim > 2:
         rmat_s = _rmat_s_helper(angs[:, 2], chi=chi)
-    return _beam_to_crystal(dvec_b, beam_vec=beam_vec, eta_vec=eta_vec,
+    return _beam_to_crystal(dvec_b, rmat_b=rmat_b,
                             rmat_s=rmat_s, rmat_c=rmat_c)
 
 
