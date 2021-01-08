@@ -2,34 +2,62 @@
 #if !defined(XRD_SINGLE_COMPILE_UNIT) || !XRD_SINGLE_COMPILE_UNIT
 #  include "transforms_utils.h"
 #  include "transforms_prototypes.h"
+#  if defined(XRD_TASK_SYSTEM) && (XRD_TASK_SYSTEM)
+#     include "transforms_task_system.h"
+#  endif # XRD_TASK_SYSTEM
 #endif
 
-XRD_CFUNCTION void
-angles_to_dvec(size_t nvecs, double * angs,
-               double * bHat_l, double * eHat_l,
-               double chi, double * rMat_c,
-               double * gVec_c)
-{
-    /*
-     *  takes an angle spec (2*theta, eta, omega) for nvecs g-vectors and
-     *  returns the unit d-vector components in the crystal frame
-     *
-     *  For unit d-vector in the lab frame, spec rMat_c = Identity and
-     *  overwrite the omega values with zeros
-     */
-    size_t i, j, k, l;
-    double rMat_e[9], rMat_s[9], rMat_ctst[9];
-    double gVec_e[3], gVec_l[3], gVec_c_tmp[3];
 
-    /* Need eta frame cob matrix (could omit for standard setting) */
-    make_beam_rmat(bHat_l, eHat_l, rMat_e);
+#define DEFAULT_CHUNK_SIZE ((size_t)128)
+
+typedef struct {
+    /* out */
+    double* dVec_c;
+
+    /* in */
+    double* angs;
+    double* rMat_c;
+    double  rMat_e[9];
+    double chi;
+    size_t chunk_size;
+    size_t total_count;
+} angles_to_dvec_params;
+
+
+static inline void
+angles_to_dvec_chunked(angles_to_dvec_params* params, size_t chunk)
+{
+    size_t loop_start, loop_end;
+    size_t i, j, k, l;
+    double rMat_s[9], rMat_ctst[9];
+    double gVec_e[3], gVec_l[3], gVec_c_tmp[3];
+    const double *angs = params->angs;
+    const double *rMat_c = params->rMat_c;
+    const double *rMat_e = &params->rMat_e[0];
+    double *dVec_c = params->dVec_c;
+    double chi = params->chi;
+    size_t chunk_size = params->chunk_size;
+    size_t total_count = params->total_count;
+    
+    loop_start = chunk * chunk_size;
+    loop_end = loop_start + chunk_size;
+    loop_end = (loop_end <= total_count)? loop_end : total_count;
 
     /* make vector array */
-    for (i=0; i<nvecs; i++) {
+    for (i=loop_start; i<loop_end; i++) {
         /* components in BEAM frame */
-        gVec_e[0] = sin(angs[3*i]) * cos(angs[3*i+1]);
-        gVec_e[1] = sin(angs[3*i]) * sin(angs[3*i+1]);
-        gVec_e[2] = -cos(angs[3*i]);
+        double theta = angs[3*i];
+        double eta = angs[3*i+1];
+        double omega = angs[3*i+2];
+
+        double sin_theta = sin(theta);
+        double cos_theta = cos(theta);
+        double sin_eta = sin(eta);
+        double cos_eta = cos(eta);
+        
+        gVec_e[0] = sin_theta * cos_eta;
+        gVec_e[1] = sin_theta * sin_eta;
+        gVec_e[2] = -cos_theta;
 
         /* take from BEAM frame to LAB frame */
         for (j=0; j<3; j++) {
@@ -40,7 +68,7 @@ angles_to_dvec(size_t nvecs, double * angs,
         }
 
         /* need pointwise rMat_s according to omega */
-        make_sample_rmat(chi, angs[3*i+2], rMat_s);
+        make_sample_rmat(chi, omega, rMat_s);
 
         /* compute dot(rMat_c.T, rMat_s.T) and hit against gVec_l */
         for (j=0; j<3; j++) {
@@ -54,9 +82,32 @@ angles_to_dvec(size_t nvecs, double * angs,
             for (k=0; k<3; k++) {
                 gVec_c_tmp[j] += rMat_ctst[3*j+k]*gVec_l[k];
             }
-            gVec_c[3*i+j] = gVec_c_tmp[j];
+            dVec_c[3*i+j] = gVec_c_tmp[j];
         }
     }
+
+}
+
+XRD_CFUNCTION void
+angles_to_dvec(size_t nvecs,
+               double * angs,
+               double * bHat_l, double * eHat_l,
+               double chi, double * rMat_c,
+               double * dVec_c)
+{
+    angles_to_dvec_params params;
+    
+    params.dVec_c = dVec_c;
+    params.angs = angs;
+    params.rMat_c = rMat_c;
+    /* Need eta frame cob matrix (could omit for standard setting) */
+    make_beam_rmat(bHat_l, eHat_l, &params.rMat_e[0]);
+    params.chi = chi;
+    params.chunk_size = nvecs;
+    params.total_count = nvecs;
+
+    /* for the moment being, leave this wrapper single chunked and serial */
+    angles_to_dvec_chunked(&params, 0);
 }
 
 
@@ -83,15 +134,12 @@ python_anglesToDVec(PyObject * self, PyObject * args)
 
     int nangs, nbhat, nehat, nrmat;
     int da1, db1, de1, dr1, dr2;
-
-    double *angs_ptr, *bHat_l_ptr, *eHat_l_ptr, *rMat_c_ptr;
-    double *dVec_c_ptr;
-
+    
     /* Parse arguments */
-    if ( !PyArg_ParseTuple(args,"OOOdO",
-                           &angs,
-                           &bHat_l, &eHat_l,
-                           &chi, &rMat_c)) return(NULL);
+    if (!PyArg_ParseTuple(args,"OOOdO",
+                          &angs,
+                          &bHat_l, &eHat_l,
+                          &chi, &rMat_c)) return(NULL);
     if ( angs == NULL ) return(NULL);
 
     /* Verify shape of input arrays */
@@ -115,25 +163,38 @@ python_anglesToDVec(PyObject * self, PyObject * args)
     assert( db1 == 3 && de1 == 3);
     assert( dr1 == 3 && dr2 == 3);
 
+    
     /* Allocate C-style array for return data */
     rdims[0] = nvecs; rdims[1] = 3;
     dVec_c = (PyArrayObject*)PyArray_EMPTY(2,rdims,NPY_DOUBLE,0);
 
-    /* Grab pointers to the various data arrays */
-    angs_ptr   = (double*)PyArray_DATA(angs);
-    bHat_l_ptr = (double*)PyArray_DATA(bHat_l);
-    eHat_l_ptr = (double*)PyArray_DATA(eHat_l);
-    rMat_c_ptr = (double*)PyArray_DATA(rMat_c);
-    dVec_c_ptr = (double*)PyArray_DATA(dVec_c);
+    if (nvecs > 0)
+    {
+        angles_to_dvec_params fn_params;
+        double *bHat_l_ptr, *eHat_l_ptr;
+        size_t chunk_count;
+        fn_params.dVec_c = (double*)PyArray_DATA(dVec_c);
+        fn_params.angs = (double*)PyArray_DATA(angs);
+        fn_params.rMat_c = (double*)PyArray_DATA(rMat_c);
+        /* Need eta frame cob matrix (could omit for standard setting) */
+        bHat_l_ptr = (double*)PyArray_DATA(bHat_l);
+        eHat_l_ptr = (double*)PyArray_DATA(eHat_l);
+        make_beam_rmat(bHat_l_ptr, eHat_l_ptr, &fn_params.rMat_e[0]);
+        fn_params.chi = chi;
+        fn_params.chunk_size = DEFAULT_CHUNK_SIZE;
+        fn_params.total_count = nvecs;
 
-    /* Call the actual function */
-    angles_to_dvec(nvecs, angs_ptr,
-                   bHat_l_ptr, eHat_l_ptr,
-                   chi, rMat_c_ptr,
-                   dVec_c_ptr);
+        chunk_count = 1 + ((nvecs - 1) / DEFAULT_CHUNK_SIZE);
 
-    /* Build and return the nested data structure */
-    return((PyObject*)dVec_c);
+        if (chunk_count > 1) {
+            xrd_transforms_task_apply(chunk_count,
+                                      &fn_params, angles_to_dvec_chunked);
+        } else {
+            angles_to_dvec_chunked(&fn_params, 0);
+        }
+    }
+
+    return ((PyObject*)dVec_c);
 }
 
 #endif /* XRD_INCLUDE_PYTHON_WRAPPERS */

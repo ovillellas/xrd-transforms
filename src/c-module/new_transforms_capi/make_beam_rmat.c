@@ -73,7 +73,7 @@ XRD_PYTHON_WRAPPER const char *docstring_makeEtaFrameRotMat =
 XRD_PYTHON_WRAPPER PyObject *
 python_makeEtaFrameRotMat(PyObject * self, PyObject * args)
 {
-    PyObject *rMat=NULL;
+    PyArrayObject *rMat=NULL;
     npy_intp dims[2];
     named_vector3 b = { "bvec_l", NULL };
     named_vector3 e = { "evec_l", NULL };
@@ -88,7 +88,7 @@ python_makeEtaFrameRotMat(PyObject * self, PyObject * args)
 
     /* Allocate the result matrix with appropriate dimensions and type */
     dims[0] = 3; dims[1] = 3;
-    rMat = PyArray_EMPTY(2, dims, NPY_FLOAT64, 0);
+    rMat = (PyArrayObject*)PyArray_EMPTY(2, dims, NPY_FLOAT64, 0);
     if (rMat == NULL)
         goto fail;
 
@@ -123,7 +123,7 @@ python_makeEtaFrameRotMat(PyObject * self, PyObject * args)
     rMat = NULL;
     
  done:
-    return rMat;
+    return (PyObject*)rMat;
 }
 
 
