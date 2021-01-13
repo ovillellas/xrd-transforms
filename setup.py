@@ -82,6 +82,11 @@ transforms_capi_extension = Extension(
 new_transforms_capi_extension = Extension(
     'xrd_transforms._new_transforms_capi',
     sources=['src/c-module/new_transforms_capi/module.c'],
+    extra_compile_args=[
+#        '-ffast-math',
+        '-framework', 'Accelerate'
+    ],
+#    extra_link_args=['-framework', 'Accelerate'],
     include_dirs=[numpy.get_include()],
     )
 

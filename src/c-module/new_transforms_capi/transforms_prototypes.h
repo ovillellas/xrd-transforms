@@ -63,6 +63,10 @@ make_sample_rmat_polar_f(float sin_chi, float cos_chi,
                          float sin_ome, float cos_ome,
                          float * restrict rPtr);
 
+XRD_CFUNCTION void
+make_sample_rmat_t_polar_f(float sin_chi, float cos_chi,
+                         float sin_ome, float cos_ome,
+                           float * restrict rPtr);
 
 XRD_CFUNCTION void
 make_rmat_of_expmap(double *ePtr, double *rPtr);

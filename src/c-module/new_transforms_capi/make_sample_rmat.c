@@ -58,6 +58,22 @@ make_sample_rmat_polar_f(float sin_chi, float cos_chi,
     rPtr[8] =  cos_chi * cos_ome;
 }
 
+XRD_CFUNCTION void
+make_sample_rmat_t_polar_f(float sin_chi, float cos_chi,
+                         float sin_ome, float cos_ome,
+                         float * restrict rPtr)
+{
+    rPtr[0] =  cos_ome;
+    rPtr[1] =  sin_chi * sin_ome;
+    rPtr[2] = -cos_chi * sin_ome;
+    rPtr[3] =  0.0;
+    rPtr[4] =  cos_chi;
+    rPtr[5] =  sin_chi;
+    rPtr[6] =  sin_ome;
+    rPtr[7] = -sin_chi * cos_ome;
+    rPtr[8] =  cos_chi * cos_ome;
+}
+
 
 #if defined(XRD_INCLUDE_PYTHON_WRAPPERS) && XRD_INCLUDE_PYTHON_WRAPPERS
 
