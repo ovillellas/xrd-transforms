@@ -5,7 +5,7 @@
 #endif
 
 XRD_CFUNCTION void
-make_sample_rmat(double chi, double ome, double * rPtr)
+make_sample_rmat(double chi, double ome, double * restrict rPtr)
 {
   double c[2],s[2];
 
@@ -25,6 +25,38 @@ make_sample_rmat(double chi, double ome, double * rPtr)
   rPtr[8] =  c[0]*c[1];
 }
 
+
+XRD_CFUNCTION void
+make_sample_rmat_polar(double sin_chi, double cos_chi,
+                       double sin_ome, double cos_ome,
+                       double * restrict rPtr)
+{
+    rPtr[0] =  cos_ome;
+    rPtr[1] =  0.0;
+    rPtr[2] =  sin_ome;
+    rPtr[3] =  sin_chi * sin_ome;
+    rPtr[4] =  cos_chi;
+    rPtr[5] = -sin_chi * cos_ome;
+    rPtr[6] = -cos_chi * sin_ome;
+    rPtr[7] =  sin_chi;
+    rPtr[8] =  cos_chi * cos_ome;
+}
+
+XRD_CFUNCTION void
+make_sample_rmat_polar_f(float sin_chi, float cos_chi,
+                         float sin_ome, float cos_ome,
+                         float * restrict rPtr)
+{
+    rPtr[0] =  cos_ome;
+    rPtr[1] =  0.0;
+    rPtr[2] =  sin_ome;
+    rPtr[3] =  sin_chi * sin_ome;
+    rPtr[4] =  cos_chi;
+    rPtr[5] = -sin_chi * cos_ome;
+    rPtr[6] = -cos_chi * sin_ome;
+    rPtr[7] =  sin_chi;
+    rPtr[8] =  cos_chi * cos_ome;
+}
 
 
 #if defined(XRD_INCLUDE_PYTHON_WRAPPERS) && XRD_INCLUDE_PYTHON_WRAPPERS
