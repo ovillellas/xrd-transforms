@@ -80,8 +80,10 @@ def _beam_to_crystal(vecs, rmat_b=None, rmat_s=None, rmat_c=None):
                 vecs[i] = np.dot(vecs[i], rmat_s[i])
         else:
             vecs = np.dot(vecs, rmat_s)
+
     if rmat_c is not None:
-        return np.dot(vecs, rmat_c)
+        vecs = np.dot(vecs, rmat_c)
+#        return np.dot(vecs, rmat_c)
 
     return vecs[0] if orig_dims == 1 else vecs
 
@@ -265,8 +267,9 @@ def angles_to_dvec(
     rmat_s = None
     if dim > 2:
         rmat_s = _rmat_s_helper(angs[:, 2], chi=chi)
-    return _beam_to_crystal(dvec_b, rmat_b=rmat_b,
-                            rmat_s=rmat_s, rmat_c=rmat_c)
+
+    res = _beam_to_crystal(dvec_b, rmat_b=rmat_b, rmat_s=rmat_s, rmat_c=rmat_c)
+    return res
 
 
 @xf_api
