@@ -39,7 +39,7 @@ oscill_angles_of_HKLs(size_t npts, double *hkls, double chi, double *rMat_c,
                       double *oangs1);
 
 /* this should probably be just a utility function in util... */
-XRD_CFUNCTION int 
+XRD_CFUNCTION int
 unit_row_vector(size_t n, double *cIn, double *cOut);
 
 XRD_CFUNCTION void
@@ -72,7 +72,7 @@ make_binary_rmat(double *aPtr, double *rPtr);
 
 #define TF_MAKE_BEAM_RMAT_ERR_BEAM_ZERO 1
 #define TF_MAKE_BEAM_RMAT_ERR_COLLINEAR 2
-XRD_CFUNCTION int 
+XRD_CFUNCTION int
 make_beam_rmat(double *bPtr, double *ePtr, double *rPtr); /* aka make_eta_frame_rotmat */
 
 XRD_CFUNCTION void
