@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+import sys
 import timeit
 import time
 import numpy as np
@@ -39,23 +40,33 @@ def rot_matrix(vector, angle):
 
 def build_args(n):
     twopi = 2*np.pi
-    vectors = np.random.rand(n,3) - 0.5
-    angles = np.random.rand(n)*twopi 
     angs = (np.random.rand(n,3) - 0.5)*twopi # (n, 3) of theta, eta, omega
+    vector = np.random.rand(1,3) - 0.5
+    angle = np.random.rand(1)*twopi 
     beam_vec = np.r_[0.0, 0.0, 1.0] # (3,) typically (0,0,1.)
     eta_vec = np.r_[0.0, 1.0, 0.0] # (3,) used to build an orthonormal base with beam_vec
     chi = 1.0 # scalar
-    rmat_c = rot_matrix(vectors, angles)
+    rmat_c = rot_matrix(vector, angle)
     
-    return (angs, beam_vec, eta_vec, chi, rmat_c)
+    return (angs, beam_vec, eta_vec, chi, rmat_c[0])
 
 
-def run_test():
+def run_test(count=20000000):
     global sample_args
-    count = 20000000
     sample_args = build_args(count)
 
-    print(f"Running angles_to_dvec with length {count}")
+    test_count = 100
+    print(f'Checking results with length {test_count}')
+    angs, beam_vec, eta_vec, chi, rmat_c = sample_args
+    test_args = (angs[0:test_count,:], beam_vec, eta_vec, chi, rmat_c)
+    ref_result = xrd_transforms.angles_to_dvec(*test_args)
+    for name, module in xrd_transforms.implementations.items():
+        result = module.angles_to_dvec(*test_args)
+#        np.testing.assert_allclose(result, ref_result, rtol=1e-5);
+        isOk = 'PASS' if np.allclose(result, ref_result, rtol=1e-5, atol=1e-6) else 'FAIL'
+        print(f'Implementation {name}: {isOk}')
+        
+    print(f'Running angles_to_dvec with length {count}')
     for name, module in xrd_transforms.implementations.items():
         if (name in ('numba', 'numpy')):
             continue
@@ -71,4 +82,10 @@ def run_test():
     
 
 if __name__ == '__main__':
-    run_test()
+    print(sys.argv)
+    if len(sys.argv) > 1:
+        for arg in sys.argv[1:]:
+            arg = int(arg)
+            run_test(count=arg)
+    else:
+        run_test()
