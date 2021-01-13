@@ -46,7 +46,6 @@ vec3_mat33_product(double * restrict result, const double *lhs, const double *rh
     result[2] = dot3ls(lhs, rhs+2, 3);
 }
 
-
 static inline void
 vec3_mat33t_product(double * restrict result, const double *lhs, const double *rhs)
 {
@@ -94,6 +93,11 @@ void matrix33_set_identity(matrix33* restrict out)
 }
 
 /* single precision versions (as needed) */
+static inline float
+dot3ll_f(const float *lhs, const float *rhs)
+{
+    return lhs[0]*rhs[0] + lhs[1]*rhs[1] + lhs[2]*rhs[2];
+}
 
 static inline float
 dot3ls_f(const float *lhs, const float *rhs, size_t stride)
@@ -107,6 +111,14 @@ vec3_mat33_product_f(float * restrict result, const float *lhs, const float *rhs
     result[0] = dot3ls_f(lhs, rhs+0, 3);
     result[1] = dot3ls_f(lhs, rhs+1, 3);
     result[2] = dot3ls_f(lhs, rhs+2, 3);
+}
+
+static inline void
+vec3_mat33t_product_f(float * restrict result, const float *lhs, const float *rhs)
+{
+    result[0] = dot3ll_f(lhs, rhs+0);
+    result[1] = dot3ll_f(lhs, rhs+3);
+    result[2] = dot3ll_f(lhs, rhs+6);
 }
 
 #endif /* TRANSFORMS_UTILS_H */
