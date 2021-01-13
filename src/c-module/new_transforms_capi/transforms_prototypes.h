@@ -54,6 +54,17 @@ XRD_CFUNCTION void
 make_sample_rmat(double chi, double ome, double *rPtr); /* aka make_oscill_rotmat */
 
 XRD_CFUNCTION void
+make_sample_rmat_polar(double sin_chi, double cos_chi,
+                       double sin_ome, double cos_ome,
+                       double * restrict rPtr);
+
+XRD_CFUNCTION void
+make_sample_rmat_polar_f(float sin_chi, float cos_chi,
+                         float sin_ome, float cos_ome,
+                         float * restrict rPtr);
+
+
+XRD_CFUNCTION void
 make_rmat_of_expmap(double *ePtr, double *rPtr);
 
 XRD_CFUNCTION void
