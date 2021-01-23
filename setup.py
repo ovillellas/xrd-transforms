@@ -81,12 +81,20 @@ transforms_capi_extension = Extension(
 
 new_transforms_capi_extension = Extension(
     'xrd_transforms._new_transforms_capi',
-    sources=['src/c-module/new_transforms_capi/module.c'],
+    sources=['src/c-module/new_transforms_capi/module.c',
+             'src/c-module/new_transforms_capi/metal/metal_support.m'],
     extra_compile_args=[
-#        '-ffast-math',
-        '-framework', 'Accelerate'
+        '-ffast-math',
+        '-march=native',
+        '-O3',
+        '-framework', 'Foundation',
+        '-framework', 'Accelerate',
+        '-framework', 'Metal'
     ],
-#    extra_link_args=['-framework', 'Accelerate'],
+    extra_link_args=['-framework', 'Foundation',
+                     '-framework', 'Accelerate',
+                     '-framework', 'Metal'
+    ],
     include_dirs=[numpy.get_include()],
     )
 

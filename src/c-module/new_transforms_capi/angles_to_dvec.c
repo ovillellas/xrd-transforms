@@ -1,8 +1,9 @@
 #define USE_TRANSFORMS_UTILS 1
-#define DEFAULT_CHUNK_SIZE ((size_t)512)
-#define USE_VECTOR_SINCOS 0
+#define DEFAULT_CHUNK_SIZE ((size_t)500)
+#define USE_VECTOR_SINCOS 1
 #define USE_FLOAT_KERNEL 0
 #define USE_MEMORY_ONLY_KERNEL 0
+#define USE_METAL 1
 #if !defined(XRD_SINGLE_COMPILE_UNIT) || !XRD_SINGLE_COMPILE_UNIT
 #  include "transforms_utils.h"
 #  include "transforms_prototypes.h"
@@ -15,44 +16,56 @@
 #  include <Accelerate/Accelerate.h>
 #endif
 
-typedef struct {
-    /* out */
-    double* dVec_c;
+typedef struct angles_to_dvec_params_tag angles_to_dvec_params;
 
-    /* in */
-    double* rMat_c;
-    double  rMat_e[9];
-    double* angs;
+#if defined(USE_METAL) && USE_METAL
+int
+metal_support_init(void);
+
+void
+metal_support_release(void);
+
+int
+metal_support_angles_to_dvec(const angles_to_dvec_params *params);
+
+#endif /* USE_METAL */
+
+struct angles_to_dvec_params_tag {
+    /* invariant */
+    double rMat_c[9];
+    double rMat_e[9];
     double chi;
     size_t chunk_size;
     size_t total_count;
-} angles_to_dvec_params;
+
+    /* in stream */
+    const double *angs;
+
+    /* out stream*/
+    double *dVec_c;
+};
 
 #if defined(USE_MEMORY_ONLY_KERNEL) && USE_MEMORY_ONLY_KERNEL
 static inline void
 angles_to_dvec_memonly_chunked(angles_to_dvec_params *params, size_t chunk)
 {
-    size_t loop_start, loop_end;
-    size_t i;
+    size_t loop_start, loop_end, i;
     const size_t chunk_size = params->chunk_size;
     const size_t total_count = params->total_count;
     const uint64_t *angs = params->angs;
-    uint64_t * restrict dVec_c = params->dVec_c;
+    double * restrict dVec_c = params->dVec_c;
 
     loop_start = chunk * chunk_size;
     loop_end = loop_start + chunk_size;
     loop_end = (loop_end <= total_count)? loop_end : total_count;
 
-    for (i=loop_start; i<loop_end; i++) {
-        /* components in BEAM frame */
-        uint64_t acc = 0;
-        acc ^= angs[3*i];
-        acc ^= angs[3*i+1];
-        acc ^= angs[3*i+2];
-        dVec_c[3*i+0] = acc;
-        dVec_c[3*i+1] = acc;
-        dVec_c[3*i+2] = acc;
-    }
+    /* a hard limit on speed... memcpy speed */
+    /* for (i = loop_start; i < loop_end; i++) { */
+    /*     dVec_c[i*3+0] = angs[i*3+0]; */
+    /*     dVec_c[i*3+1] = angs[i*3+1]; */
+    /*     dVec_c[i*3+2] = angs[i*3+2];  */
+    /* } */
+    memcpy(dVec_c + 3*loop_start, angs + 3*loop_start, 3*(loop_end - loop_start)*sizeof(double));
 }
 #endif /* USE_MEMORY_ONLY_KERNEL */
 
@@ -75,6 +88,10 @@ angles_to_dvec_sp_chunked(angles_to_dvec_params *params, size_t chunk)
     float chi = params->chi;
     float sin_chi = sinf(chi);
     float cos_chi = cosf(chi);
+#if defined(USE_VECTOR_SINCOS) &&  USE_VECTOR_SINCOS
+    float sin_teo[3*chunk_size];
+    float cos_teo[3*chunk_size];
+#endif
 
     for (i=0; i<9; i++) {
         rMat_e[i] = (float)params->rMat_e[transpose_table[i]];
@@ -88,8 +105,29 @@ angles_to_dvec_sp_chunked(angles_to_dvec_params *params, size_t chunk)
     loop_end = loop_start + chunk_size;
     loop_end = (loop_end <= total_count)? loop_end : total_count;
 
+#if defined(USE_VECTOR_SINCOS) &&  USE_VECTOR_SINCOS
+    {
+        float angles[3*chunk_size];
+        int this_chunk_size = loop_end - loop_start;
+        int angs_size = 3*this_chunk_size;
+
+        vDSP_vdpsp(angs, 1, angles, 1, angs_size);
+        vvsincosf(sin_teo, cos_teo, angles, &angs_size);
+    }
+#endif
+
+    
     for (i=loop_start; i<loop_end; i++) {
         /* components in BEAM frame */
+#if defined(USE_VECTOR_SINCOS) &&  USE_VECTOR_SINCOS
+        size_t teo_idx = 3*(i-loop_start);
+        float sin_theta = sin_teo[teo_idx];
+        float cos_theta = cos_teo[teo_idx];
+        float sin_eta   = sin_teo[teo_idx+1];
+        float cos_eta   = cos_teo[teo_idx+1];
+        float sin_omega = sin_teo[teo_idx+2];
+        float cos_omega = cos_teo[teo_idx+2];
+#else
         float theta = angs[3*i];
         float eta = angs[3*i+1];
         float omega = angs[3*i+2];
@@ -99,6 +137,7 @@ angles_to_dvec_sp_chunked(angles_to_dvec_params *params, size_t chunk)
         float cos_eta = cosf(eta);
         float sin_omega = sinf(omega);
         float cos_omega = cosf(omega);
+#endif
 
         gVec_e[0] = sin_theta * cos_eta;
         gVec_e[1] = sin_theta * sin_eta;
@@ -224,16 +263,19 @@ angles_to_dvec(size_t nvecs,
                double chi, double * rMat_c,
                double * dVec_c)
 {
+    size_t i;
     angles_to_dvec_params params;
 
-    params.dVec_c = dVec_c;
-    params.angs = angs;
-    params.rMat_c = rMat_c;
+
+    for (i=0; i<9;i++)
+        params.rMat_c[i] = rMat_c[i];
     /* Need eta frame cob matrix (could omit for standard setting) */
     make_beam_rmat(bHat_l, eHat_l, &params.rMat_e[0]);
     params.chi = chi;
     params.chunk_size = nvecs;
     params.total_count = nvecs;
+    params.angs = angs;
+    params.dVec_c = dVec_c;
 
     /* for the moment being, leave this wrapper single chunked and serial */
     angles_to_dvec_chunked(&params, 0);
@@ -253,17 +295,108 @@ XRD_PYTHON_WRAPPER const char *docstring_anglesToDVec =
     "c module implementation of angles_to_dvec.\n"
     "Please use the Python wrapper.\n";
 
+static int
+extract_vec3_d_from_pyarray(double * restrict dst, PyArrayObject* arr)
+{
+    /* checks that arr is a 3 vector and copies its contents to dst */
+    
+    int ndims = PyArray_NDIM(arr);
+    int type_number = PyArray_TYPE(arr);
+    npy_intp *shape = PyArray_SHAPE(arr);
+    npy_intp *strides = PyArray_STRIDES(arr);
+    char *data = PyArray_BYTES(arr);
+    
+    /* 3x3 array */
+    if ((ndims != 1) || (shape[0] != 3))
+        goto error;
+
+    /* note: all this kind of assumes everything is in NBO */
+    /* support either float or double arrays */
+    if (NPY_DOUBLE == type_number)
+    {
+        int i;
+
+        for (i=0; i<3; i++)
+        {
+            dst[i] = *(double*)(data + strides[0]*i);
+        }
+    }
+    else if (NPY_FLOAT == type_number)
+    {
+        int i;
+
+        for (i=0; i<3; i++)
+        {
+            dst[i] = (double)*(float*)(data + strides[0]*i);
+        }
+    }
+    else
+        goto error;
+
+    return 0;
+
+ error:
+    return -1;
+}
+
+static int
+extract_mat33_d_from_pyarray(double * restrict dst, PyArrayObject* arr)
+{
+    /* checks that the argument arr is a 3x3 array and copies its contents to
+       dst as column-contiguous (FORTRAN order/transposed C order)
+    */
+    int ndims = PyArray_NDIM(arr);
+    int type_number = PyArray_TYPE(arr);
+    npy_intp *shape = PyArray_SHAPE(arr);
+    npy_intp *strides = PyArray_STRIDES(arr);
+    char *data = PyArray_BYTES(arr);
+    
+    /* 3x3 array */
+    if ((ndims != 2) || (shape[0] != 3) || (shape[1]!=3))
+        goto error;
+
+    /* note: all this kind of assumes everything is in NBO */
+    /* support either float or double arrays */
+    if (NPY_DOUBLE == type_number)
+    {
+        int i, j;
+
+        for (j=0; j<3; j++)
+            for (i=0; i<3; i++)
+            {
+                dst[j*3+i] = *(double*)(data + strides[1]*i + strides[0]*j);
+            }
+    }
+    else if (NPY_FLOAT == type_number)
+    {
+        int i, j;
+
+        for (j=0; j<3; j++)
+            for (i=0; i<3; i++)
+            {
+                dst[j*3+i] = (double)*(float*)(data + strides[1]*i + strides[0]*j);
+            }
+    }
+    else
+        goto error;
+
+    return 0;
+
+ error:
+    return -1;
+}
+
+
 XRD_PYTHON_WRAPPER PyObject *
 python_anglesToDVec(PyObject * self, PyObject * args)
 {
     PyArrayObject *angs, *bHat_l, *eHat_l, *rMat_c;
-    PyArrayObject *dVec_c;
+    PyArrayObject *dVec_c = NULL;
     double chi;
-    npy_intp nvecs, rdims[2];
-
-    int nangs, nbhat, nehat, nrmat;
-    int da1, db1, de1, dr1, dr2;
-
+    npy_intp nvecs;
+    angles_to_dvec_params fn_params;
+    double bHat[3], eHat[3];
+    size_t chunk_count;
     /* Parse arguments */
     if (!PyArg_ParseTuple(args,"OOOdO",
                           &angs,
@@ -271,49 +404,70 @@ python_anglesToDVec(PyObject * self, PyObject * args)
                           &chi, &rMat_c)) return(NULL);
     if ( angs == NULL ) return(NULL);
 
-    /* Verify shape of input arrays */
-    nangs = PyArray_NDIM(angs);
-    nbhat = PyArray_NDIM(bHat_l);
-    nehat = PyArray_NDIM(eHat_l);
-    nrmat = PyArray_NDIM(rMat_c);
-
-    assert( nangs==2 && nbhat==1 && nehat==1 && nrmat==2 );
 
     /* Verify dimensions of input arrays */
-    nvecs = PyArray_DIMS(angs)[0]; /* rows */
-    da1   = PyArray_DIMS(angs)[1]; /* cols */
 
-    db1   = PyArray_DIMS(bHat_l)[0];
-    de1   = PyArray_DIMS(eHat_l)[0];
-    dr1   = PyArray_DIMS(rMat_c)[0];
-    dr2   = PyArray_DIMS(rMat_c)[1];
+    /* Argument error checking...  */
+    if (!PyArray_Check(angs) || !PyArray_Check(bHat_l) ||
+        !PyArray_Check(eHat_l) || !PyArray_Check(rMat_c))
+        goto error;
+    
+    /* angs must be a contiguous array of [theta, eta, omega] angles. */
+    if ((2 != PyArray_NDIM(angs)) || (3 != PyArray_DIMS(angs)[1]))
+        goto error;
+        
+    /* check and extract the C rotation matrix -converts floats- */
+    if (0 != extract_mat33_d_from_pyarray(&fn_params.rMat_c[0], rMat_c))
+        goto error;
 
-    assert( da1 == 3 );
-    assert( db1 == 3 && de1 == 3);
-    assert( dr1 == 3 && dr2 == 3);
+    if (0 != extract_vec3_d_from_pyarray(bHat, bHat_l))
+        goto error;
 
+    if (0 != extract_vec3_d_from_pyarray(eHat, eHat_l))
+        goto error;
 
+    nvecs = PyArray_DIMS(angs)[0];
     /* Allocate C-style array for return data */
-    rdims[0] = nvecs; rdims[1] = 3;
-    dVec_c = (PyArrayObject*)PyArray_EMPTY(2,rdims,NPY_DOUBLE,0);
-
-    if (nvecs > 0)
     {
-        angles_to_dvec_params fn_params;
-        double *bHat_l_ptr, *eHat_l_ptr;
-        size_t chunk_count;
-        fn_params.dVec_c = (double*)PyArray_DATA(dVec_c);
-        fn_params.rMat_c = (double*)PyArray_DATA(rMat_c);
-        /* Need eta frame cob matrix (could omit for standard setting) */
-        bHat_l_ptr = (double*)PyArray_DATA(bHat_l);
-        eHat_l_ptr = (double*)PyArray_DATA(eHat_l);
-        make_beam_rmat(bHat_l_ptr, eHat_l_ptr, &fn_params.rMat_e[0]);
-        fn_params.angs = (double*)PyArray_DATA(angs);
-        fn_params.chi = chi;
-        fn_params.chunk_size = DEFAULT_CHUNK_SIZE;
-        fn_params.total_count = nvecs;
+        npy_intp rdims[] = { nvecs, 3 };
+        dVec_c = (PyArrayObject*)PyArray_EMPTY(2,rdims, NPY_DOUBLE, 0);
+    }
 
-        chunk_count = 1 + ((nvecs - 1) / DEFAULT_CHUNK_SIZE);
+    if (nvecs < 1)
+        goto end_ok;
+    
+    Py_BEGIN_ALLOW_THREADS
+
+    make_beam_rmat(bHat, eHat, &fn_params.rMat_e[0]);
+    fn_params.chi = chi;
+    fn_params.chunk_size = DEFAULT_CHUNK_SIZE;
+    fn_params.total_count = nvecs;
+
+    fn_params.angs = (const double *)PyArray_DATA(angs);
+    fn_params.dVec_c = (double *)PyArray_DATA(dVec_c);
+
+    chunk_count = 1 + ((nvecs - 1) / DEFAULT_CHUNK_SIZE);
+
+
+#if defined(USE_METAL) && USE_METAL
+    if (0 == metal_support_init()) {
+        int res;
+        res = metal_support_angles_to_dvec(&fn_params);
+        metal_support_release();
+        if (0 == res) {
+            Py_BLOCK_THREADS
+            goto end_ok;
+        } else {
+            Py_BLOCK_THREADS
+            goto metal_error;
+        }
+    } else {
+        Py_BLOCK_THREADS
+        goto metal_error;
+    }
+    
+#endif /* USE_METAL */
+
 #if defined(USE_MEMORY_ONLY_KERNEL) && USE_MEMORY_ONLY_KERNEL
 #  define ANGLES_TO_DVEC_KERNEL angles_to_dvec_memonly_chunked
 #elif defined(USE_FLOAT_KERNEL) && USE_FLOAT_KERNEL
@@ -322,17 +476,27 @@ python_anglesToDVec(PyObject * self, PyObject * args)
 #  define ANGLES_TO_DVEC_KERNEL angles_to_dvec_chunked
 #endif
 
-        if (chunk_count > 1) {
-            xrd_transforms_task_apply(chunk_count,
-                                      &fn_params, ANGLES_TO_DVEC_KERNEL);
-        } else {
-            ANGLES_TO_DVEC_KERNEL(&fn_params, 0);
-        }
-
-#undef ANGLES_TO_DVEC_KERNEL
+    if (chunk_count > 1) {
+        xrd_transforms_task_apply(chunk_count,
+                                  &fn_params, ANGLES_TO_DVEC_KERNEL);
+    } else {
+        ANGLES_TO_DVEC_KERNEL(&fn_params, 0);
     }
 
+
+#undef ANGLES_TO_DVEC_KERNEL
+
+    Py_END_ALLOW_THREADS
+ end_ok:
     return ((PyObject*)dVec_c);
+#if defined(USE_METAL) && USE_METAL
+ metal_error:
+    PyErr_SetString(PyExc_RuntimeError, "Failed execution of metal compute kernel");
+    return NULL;
+#endif /* USE_METAL */
+ error:
+    PyErr_SetString(PyExc_TypeError, "Bad types in call to 'angles_to_dvec'");
+    return NULL;
 }
 
 #endif /* XRD_INCLUDE_PYTHON_WRAPPERS */
