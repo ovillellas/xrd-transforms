@@ -1,60 +1,8 @@
 #import <Foundation/Foundation.h>
 #import <Metal/Metal.h>
 #import <Accelerate/Accelerate.h>
-static id<MTLDevice> transforms_metal_device = nil;
 
-/* HACK HACK HACK */
-typedef struct {
-    /* invariant */
-    double rMat_c[9];
-    double rMat_e[9];
-    double chi;
-    size_t chunk_size;
-    size_t total_count;
-
-    /* in stream */
-    const double *angs;
-    
-    /* out stream*/
-    double *dVec_c;
-} angles_to_dvec_params;
-/* END HACK HACK HACK */
-
-static void
-dump_available_devices(void)
-{
-    NSArray<id<MTLDevice>> *deviceList = nil;
-
-    deviceList = MTLCopyAllDevices();
-    NSLog(@"Devices: %@", deviceList);
-}
-
-
-int
-metal_support_init(void)
-{
-    /* dump_available_devices();*/
-    id<MTLDevice> device;
-    device = MTLCreateSystemDefaultDevice();
-    if (nil == device) {
-        NSLog(@"Cannot find Metal Default Device.");
-        goto error;
-    }
-
-    /* copy to globals */
-    transforms_metal_device = device;
-
-    return 0;
- error:
-    return -1;
-}
-
-void
-metal_support_release(void)
-{
-    transforms_metal_device = nil;
-}
-
+const size_t metal_buffer_size = 1024*1024;
 
 static NSString* angles_to_dvec_kernel_src = @""
 "#include <metal_stdlib>\n"
@@ -108,33 +56,66 @@ static NSString* angles_to_dvec_kernel_src = @""
 "    dVec_c_out[tid*3+2] = vec3_result[2];\n"
 "}\n";
 
-typedef struct angles_to_dvec_uniforms_tag
+
+/* state for Metal */
+static id<MTLDevice> metal_transforms_device = nil;
+static id<MTLComputePipelineState> metal_transforms_pso_angles_to_dvec;
+/* HACK HACK HACK */
+typedef struct {
+    /* invariant */
+    double rMat_c[9];
+    double rMat_e[9];
+    double chi;
+    size_t chunk_size;
+    size_t total_count;
+
+    /* in stream */
+    const double *angs;
+    
+    /* out stream*/
+    double *dVec_c;
+} angles_to_dvec_params;
+/* END HACK HACK HACK */
+
+static void
+dump_available_devices(void)
 {
-    float rMat_c[9];
-    float rMat_e[9];
-    float sin_chi;
-    float cos_chi;
-} angles_to_dvec_uniforms;
+    NSArray<id<MTLDevice>> *deviceList = nil;
+
+    deviceList = MTLCopyAllDevices();
+    NSLog(@"Devices: %@", deviceList);
+}
 
 
-static char transpose_idx[] = { 0, 3, 6, 1, 4, 7, 2, 5, 8 };
 int
-metal_support_angles_to_dvec(const angles_to_dvec_params *params)
+metal_support_init(void)
 {
-    id<MTLDevice> device = transforms_metal_device;
+    if (nil != metal_transforms_device)
+        return 0; // already initialized
+    
+    /* dump_available_devices();*/
+    id<MTLDevice> device;
+    device = MTLCreateSystemDefaultDevice();
+    if (nil == device) {
+        NSLog(@"Cannot find Metal Default Device.");
+        goto error;
+    }
+
     MTLCompileOptions *compile_options = [MTLCompileOptions new];
     NSError *compile_error = nil;
 
     id<MTLLibrary> lib = [device newLibraryWithSource: angles_to_dvec_kernel_src
                                               options: compile_options
                                                 error: &compile_error];
+
     if (nil == lib) {
-        NSLog(@"Failed to create angles_to_dvec_kernel for metal:\n%@",
-                compile_error);
+        NSLog(@"Failed to create angles_to_dvec_kernel:\n%@", compile_error);
         goto error;
     }
+
     if (nil != compile_error) {
-        NSLog(@"Compile error: %@", compile_error);
+        /* Sometimes compile fails but newLibraryWithSource returns non-nil (!) */
+        NSLog(@"Metal library compile error: %@", compile_error);
     }
 
     id<MTLFunction> angles_to_dvec_kernel;
@@ -147,6 +128,7 @@ metal_support_angles_to_dvec(const angles_to_dvec_params *params)
 
     id<MTLComputePipelineState> angles_to_dvec_PSO;
     NSError *create_pipeline_error = nil;
+
     angles_to_dvec_PSO = [device newComputePipelineStateWithFunction: angles_to_dvec_kernel
                                                                error: &create_pipeline_error];
     if (nil == angles_to_dvec_PSO) {
@@ -154,6 +136,36 @@ metal_support_angles_to_dvec(const angles_to_dvec_params *params)
               create_pipeline_error);
         goto error;
     }
+    
+    /* copy to globals */
+    metal_transforms_device = device;
+    metal_transforms_pso_angles_to_dvec = angles_to_dvec_PSO;
+    return 0;
+ error:
+    return -1;
+}
+
+void
+metal_support_release(void)
+{
+    metal_transforms_device = nil;
+    metal_transforms_pso_angles_to_dvec = nil;
+}
+
+typedef struct angles_to_dvec_uniforms_tag
+{
+    float rMat_c[9];
+    float rMat_e[9];
+    float sin_chi;
+    float cos_chi;
+} angles_to_dvec_uniforms;
+
+static uint8_t transpose_idx[] = { 0, 3, 6, 1, 4, 7, 2, 5, 8 };
+
+int
+metal_support_angles_to_dvec(const angles_to_dvec_params *params)
+{
+    id<MTLDevice> device = metal_transforms_device;
 
     id<MTLBuffer> angs_in_buffer, dvecs_c_out_buffer, uniforms_buffer;
     size_t angs_in_size = sizeof(float)*3*params->total_count;
@@ -210,14 +222,14 @@ metal_support_angles_to_dvec(const angles_to_dvec_params *params)
         goto error;
     }
 
-    [encoder setComputePipelineState: angles_to_dvec_PSO];
+    [encoder setComputePipelineState: metal_transforms_pso_angles_to_dvec];
     [encoder setBuffer: dvecs_c_out_buffer offset: 0 atIndex: 0];
     [encoder setBuffer: angs_in_buffer offset: 0 atIndex: 1];
     [encoder setBuffer: uniforms_buffer offset: 0 atIndex: 2];
 
     MTLSize grid_size = MTLSizeMake(params->total_count, 1, 1);
 
-    NSUInteger threadgroup_size = angles_to_dvec_PSO.maxTotalThreadsPerThreadgroup;
+    NSUInteger threadgroup_size = metal_transforms_pso_angles_to_dvec.maxTotalThreadsPerThreadgroup;
     if (threadgroup_size > params->total_count) {
         threadgroup_size = params->total_count;
     }
@@ -241,3 +253,4 @@ metal_support_angles_to_dvec(const angles_to_dvec_params *params)
  error:
     return -1;
 }
+
