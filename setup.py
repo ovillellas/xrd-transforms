@@ -85,7 +85,7 @@ new_transforms_capi_extension = Extension(
              'src/c-module/new_transforms_capi/metal/metal_support.m'],
     extra_compile_args=[
         '-ffast-math',
-        '-march=native',
+#        '-march=native',
         '-O3',
         '-framework', 'Foundation',
         '-framework', 'Accelerate',
@@ -93,7 +93,8 @@ new_transforms_capi_extension = Extension(
     ],
     extra_link_args=['-framework', 'Foundation',
                      '-framework', 'Accelerate',
-                     '-framework', 'Metal'
+                     '-framework', 'Metal',
+                     '-framework', 'CoreGraphics'
     ],
     include_dirs=[numpy.get_include()],
     )

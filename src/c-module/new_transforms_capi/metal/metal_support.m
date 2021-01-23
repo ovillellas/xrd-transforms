@@ -1,6 +1,6 @@
 #import <Foundation/Foundation.h>
 #import <Metal/Metal.h>
-
+#import <Accelerate/Accelerate.h>
 static id<MTLDevice> transforms_metal_device = nil;
 
 /* HACK HACK HACK */
@@ -20,13 +20,21 @@ typedef struct {
 } angles_to_dvec_params;
 /* END HACK HACK HACK */
 
+static void
+dump_available_devices(void)
+{
+    NSArray<id<MTLDevice>> *deviceList = nil;
 
-extern BOOL NSDebugEnabled;
+    deviceList = MTLCopyAllDevices();
+    NSLog(@"Devices: %@", deviceList);
+}
+
+
 int
 metal_support_init(void)
 {
-    NSDebugEnabled = YES;
-    static id<MTLDevice> device;
+    /* dump_available_devices();*/
+    id<MTLDevice> device;
     device = MTLCreateSystemDefaultDevice();
     if (nil == device) {
         NSLog(@"Cannot find Metal Default Device.");
@@ -53,8 +61,8 @@ static NSString* angles_to_dvec_kernel_src = @""
 "using namespace metal;\n"
 "\n"
 "struct angles_to_dvec_uniforms {\n"
-"    float3x3 rMat_c;\n"
-"    float3x3 rMat_e;\n"
+"    packed_float3 rMat_c[3];\n"
+"    packed_float3 rMat_e[3];\n"
 "    float sin_chi;\n"
 "    float cos_chi;\n"
 "};\n"
@@ -87,10 +95,12 @@ static NSString* angles_to_dvec_kernel_src = @""
 "                                     -uniforms.sin_chi * cos_angs[2],\n"
 "                                      uniforms.cos_chi * cos_angs[2]));\n"
 "\n"
+"    float3x3 rMat_e = float3x3(uniforms.rMat_e[0], uniforms.rMat_e[1], uniforms.rMat_e[2]);\n"
+"    float3x3 rMat_c = float3x3(uniforms.rMat_c[0], uniforms.rMat_c[1], uniforms.rMat_c[2]);\n"
 "    /* actual transforms are made easy by metal matrix operations */\n"
-"    float3 gVec_l = gVec_e*uniforms.rMat_e;\n"
+"    float3 gVec_l = gVec_e*rMat_e;\n"
 "    float3 vec3_tmp = gVec_l*rMat_s;\n"
-"    float3 vec3_result = vec3_tmp*uniforms.rMat_c;\n"
+"    float3 vec3_result = vec3_tmp*rMat_c;\n"
 "\n"
 "    /* copy results to out stream */ \n"
 "    dVec_c_out[tid*3] = vec3_result[0];\n"
@@ -106,6 +116,8 @@ typedef struct angles_to_dvec_uniforms_tag
     float cos_chi;
 } angles_to_dvec_uniforms;
 
+
+static char transpose_idx[] = { 0, 3, 6, 1, 4, 7, 2, 5, 8 };
 int
 metal_support_angles_to_dvec(const angles_to_dvec_params *params)
 {
@@ -156,13 +168,10 @@ metal_support_angles_to_dvec(const angles_to_dvec_params *params)
 
     /* copy data into input buffer */
     {
-        double *src = params->angs;
+        const double *src = params->angs;
         float *dst = angs_in_buffer.contents;
         size_t count = 3*params->total_count;
-        size_t i;
-        for (i=0; i<count; i++) {
-            dst[i] = (float)src[i];
-        }
+        vDSP_vdpsp(src, 1, dst, 1, count);
     }
 
     /* copy data into uniforms buffer */
@@ -171,11 +180,11 @@ metal_support_angles_to_dvec(const angles_to_dvec_params *params)
         size_t i;
 
         for (i=0; i<9; i++) {
-            uniforms->rMat_c[i] = (float)params->rMat_c[i];
+            uniforms->rMat_c[i] = (float)params->rMat_c[transpose_idx[i]];
         }
 
         for (i=0; i<9; i++) {
-            uniforms->rMat_e[i] = (float)params->rMat_e[i];
+            uniforms->rMat_e[i] = (float)params->rMat_e[transpose_idx[i]];
         }
 
         uniforms->sin_chi = (float)sin(params->chi);
@@ -222,14 +231,10 @@ metal_support_angles_to_dvec(const angles_to_dvec_params *params)
     [cb waitUntilCompleted];
     /* copy results out from the output buffer to memory */
     {
-        float *src = dvecs_c_out_buffer.contents;
+        const float *src = dvecs_c_out_buffer.contents;
         double *dst = params->dVec_c;
         size_t count = 3*params->total_count;
-        size_t i;
-
-        for (i=0; i<count; i++) {
-            dst[i] = (double)src[i];
-        }
+        vDSP_vspdp(src, 1, dst, 1, count);
     }
 
     return 0;
