@@ -51,9 +51,11 @@ def build_args(n):
     return (angs, beam_vec, eta_vec, chi, rmat_c[0])
 
 
-def run_test(count=20000000):
-    global sample_args
-    sample_args = build_args(count)
+def run_test(counts=[20000000]):
+    global run_args
+
+    max_count = max(counts)
+    sample_args = build_args(max_count)
 
     test_count = 100
     print(f'Checking results with length {test_count}')
@@ -61,22 +63,25 @@ def run_test(count=20000000):
     test_args = (angs[0:test_count,:], beam_vec, eta_vec, chi, rmat_c)
     ref_result = xrd_transforms.angles_to_dvec(*test_args)
     for name, module in xrd_transforms.implementations.items():
+        if (name in ('numba')):
+            continue
         result = module.angles_to_dvec(*test_args)
-#        np.testing.assert_allclose(result, ref_result, rtol=1e-5);
         isOk = 'PASS' if np.allclose(result, ref_result, rtol=1e-5, atol=1e-6) else 'FAIL'
         print(f'Implementation {name}: {isOk}')
-        
-    print(f'Running angles_to_dvec with length {count}')
-    for name, module in xrd_transforms.implementations.items():
-        if (name in ('numba', 'numpy')):
-            continue
-        
-        setup_str = (f"from __main__ import sample_args, xrd_transforms\n"
-                     f"fn = xrd_transforms.implementations['{name}'].angles_to_dvec")
 
-        results = timeit.repeat(stmt=f"fn(*sample_args)",
-                                setup=setup_str, repeat=3, number=3)
-        print(f"{name:12}: {min(results):8.4} secs")
+    for count in counts:
+        print(f'Running angles_to_dvec with length {count}')
+        run_args = (angs[0:count,:], beam_vec, eta_vec, chi, rmat_c)
+        for name, module in xrd_transforms.implementations.items():
+            if (name in ('numba', 'numpy')):
+                continue
+
+            setup_str = (f"from __main__ import run_args, xrd_transforms\n"
+                         f"fn = xrd_transforms.implementations['{name}'].angles_to_dvec")
+
+            results = timeit.repeat(stmt=f"fn(*run_args)",
+                                    setup=setup_str, repeat=3, number=3)
+            print(f"{name:12}: {min(results):8.4} secs")
 
     del sample_args
     
@@ -84,8 +89,7 @@ def run_test(count=20000000):
 if __name__ == '__main__':
     print(sys.argv)
     if len(sys.argv) > 1:
-        for arg in sys.argv[1:]:
-            arg = int(arg)
-            run_test(count=arg)
+        args = [int(arg) for arg in sys.argv[1:]]
+        run_test(counts=args)
     else:
         run_test()
