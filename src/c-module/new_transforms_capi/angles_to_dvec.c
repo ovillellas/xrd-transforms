@@ -453,7 +453,6 @@ python_anglesToDVec(PyObject * self, PyObject * args)
     if (0 == metal_support_init()) {
         int res;
         res = metal_support_angles_to_dvec(&fn_params);
-        metal_support_release();
         if (0 == res) {
             Py_BLOCK_THREADS
             goto end_ok;
