@@ -57,15 +57,16 @@ def run_test(counts=[20000000]):
     max_count = max(counts)
     sample_args = build_args(max_count)
 
-    test_count = 100
+    test_count = max(counts)
     print(f'Checking results with length {test_count}')
     angs, beam_vec, eta_vec, chi, rmat_c = sample_args
     test_args = (angs[0:test_count,:], beam_vec, eta_vec, chi, rmat_c)
-    ref_result = xrd_transforms.angles_to_dvec(*test_args)
+    ref_result = xrd_transforms.implementations['capi'].angles_to_dvec(*test_args)
     for name, module in xrd_transforms.implementations.items():
-        if (name in ('numba')):
+        if (name in ('numpy','numba')):
             continue
         result = module.angles_to_dvec(*test_args)
+        np.testing.assert_allclose(result, ref_result, rtol=1e-5, atol=1e-6);
         isOk = 'PASS' if np.allclose(result, ref_result, rtol=1e-5, atol=1e-6) else 'FAIL'
         print(f'Implementation {name}: {isOk}')
 
