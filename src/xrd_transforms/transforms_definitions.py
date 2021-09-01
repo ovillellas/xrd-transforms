@@ -132,13 +132,14 @@ class DEF_gvec_to_xy(DEF_Func):
     Parameters
     ----------
     gvec_c : array_like
-        Concatenated triplets of G-vector components in the CRYSTAL FRAME.
+        (N, 3) G-vector components in the CRYSTAL FRAME.
     rmat_d : array_like
         The (3, 3) COB matrix taking components in the
         DETECTOR FRAME to the LAB FRAME
     rmat_s : array_like
-        The (3, 3) COB matrix taking components in the
-        SAMPLE FRAME to the LAB FRAME
+        The ([N,] 3, 3) COB matrix taking components in the SAMPLE FRAME to the
+        LAB FRAME. It may be a single (3, 3) rotation matrix to use for all
+        gvec_c, or just one rotation matrix per gvec.
     rmat_c : array_like
         The (3, 3) COB matrix taking components in the
         CRYSTAL FRAME to the SAMPLE FRAME
