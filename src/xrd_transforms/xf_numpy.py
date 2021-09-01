@@ -89,8 +89,7 @@ def _beam_to_crystal(vecs, rmat_b=None, rmat_s=None, rmat_c=None):
 def _crystal_to_lab(gvecs,
                     rmat_s, rmat_c,
                     bmat=None, vmat_inv=None):
-    """
-    gvecs is (n, 3), but may also be (3,)
+    """gvecs is (n, 3), but may also be (3,)
 
     rmat_s are either (3, 3) or (n, 3, 3)
 
@@ -112,9 +111,10 @@ def _crystal_to_lab(gvecs,
         This can be either (3, 3) or (n, 3, 3). In the latter case, each of the
         n input G-vectors is transformed using the associated entry in
         `rmat_s`.
-    rmat_c : array_like
-        The (3, 3) COB matrix taking components in the
-        CRYSTAL FRAME to the SAMPLE FRAME.
+    rmat_c : array_like or None
+        The (3, 3) COB matrix taking components in the CRYSTAL FRAME to the
+        SAMPLE FRAME. None can be provided, in which case result will be
+        equivalent to an identity rmat_c, but operations will be skipped.
     bmat : array_like, optional
         The (3, 3) COB matrix taking components in the
         RECIPROCAL LATTICE FRAME to the CRYSTAL FRAME; if supplied, it is
@@ -156,7 +156,7 @@ def _crystal_to_lab(gvecs,
     # some precondintions
     assert gvecs.ndim <= 2 and gvecs.shape[-1] == 3
     assert rmat_s.ndim <= 3 and rmat_s.shape[-2:] == (3, 3)
-    assert rmat_c.ndim == 2 and rmat_c.shape == (3, 3)
+    assert (rmat_c is None) or (rmat_c.ndim == 2 and rmat_c.shape == (3, 3))
 
     # catch 1-d input and grab number of input vectors
     nvecs = 1 if gvecs.ndim == 1 else len(gvecs)
@@ -165,13 +165,11 @@ def _crystal_to_lab(gvecs,
     assert nvecs == 1 or nmats == 1 or nvecs==nmats
 
     # if bmat is specified, input are components in reiprocal lattice (h, k, l)
-    if bmat is not None:
-        gvecs = np.dot(gvecs, bmat.T)
+    gvecs = gvecs if bmat is None else np.dot(gvecs, bmat.T)
 
     # CRYSTAL FRAME --> SAMPLE FRAME
-    gvec_s = np.dot(gvecs, rmat_c.T)
-    if vmat_inv is not None:
-        gvec_s = np.dot(gvec_s, vmat_inv.T)
+    gvec_s = gvecs if rmat_c is None else np.dot(gvecs, rmat_c.T)
+    gvec_s = gvec_s if vmat_inv is None else np.dot(gvec_s, vmat_inv.T)
 
     # SAMPLE FRAME --> LAB FRAME
     if nmats > 1:
@@ -295,7 +293,7 @@ def gvec_to_xy(gvec_c,
 
     # need CRYSTAL frame origin.  If rmat_s is 3-d, this will be a list
     # !!!: use _crystal_to_lab helper with trivial rmat_c
-    P0_l = _crystal_to_lab(tvec_c, rmat_s, np.eye(3))  # CRYSTAL FRAME origin
+    P0_l = _crystal_to_lab(tvec_c, rmat_s, None)  # CRYSTAL FRAME origin
     P3_l = tvec_d  # DETECTOR FRAME origin
 
     # form unit reciprocal lattice vectors in lab frame (w/o translation)
@@ -478,7 +476,7 @@ def solve_omega(gvecs, chi, rmat_c, wavelength,
 
         # return unit G-vectors in LAB FRAME
         ghat_l = _crystal_to_lab(tmp_gvec,
-                                 rmat_s, cnst.identity_3x3,
+                                 rmat_s, None,
                                  bmat=None, vmat_inv=None)
 
         # if non-standard beam frame is specified, transform ghat_l to
