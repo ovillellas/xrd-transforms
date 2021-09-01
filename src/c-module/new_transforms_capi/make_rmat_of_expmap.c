@@ -28,7 +28,7 @@ make_rmat_of_expmap(double *ePtr, double *rPtr)
         rPtr[7] =  s*e0 + c*e2*e1;
         rPtr[8] =  1.0  - c*(e0*e0 + e1*e1);
     } else {
-        matrix33_set_identity((matrix33*)rPtr);
+        m33_set_identity(rPtr);
     }
 }
 
