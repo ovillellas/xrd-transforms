@@ -101,13 +101,14 @@ def gvec_to_xy(gvec_c,
     # a 3x3 matrix (ndim 2) or an nx3x4 array of matrices (ndim 3)
     if rmat_s.ndim > 2:
         result =  _impl.gvecToDetectorXYArray(gvec_c,
-                                                         rmat_d, tvec_s, tvec_c,
-                                                         beam_vec)
+                                              rmat_d, rmat_s, rmat_c,
+                                              tvec_d, tvec_s, tvec_c,
+                                              beam_vec)
     else:
         result =  _impl.gvecToDetectorXY(gvec_c,
-                                                    rmat_d, rmat_s, rmat_c,
-                                                    tvec_d, tvec_s, tvec_c,
-                                                    beam_vec)
+                                         rmat_d, rmat_s, rmat_c,
+                                         tvec_d, tvec_s, tvec_c,
+                                         beam_vec)
     return result[0] if orig_ndim == 1 else result
 
 

@@ -90,7 +90,7 @@ def _crystal_to_lab(gvecs,
                     rmat_s, rmat_c,
                     bmat=None, vmat_inv=None):
     """
-    gvecs is (n, 3)
+    gvecs is (n, 3), but may also be (3,)
 
     rmat_s are either (3, 3) or (n, 3, 3)
 
@@ -153,38 +153,39 @@ def _crystal_to_lab(gvecs,
      gvec_l = np.dot(gvec_b, np.dot(rmat_b.T, np.dot(rmat_s, rmat_c)))
 
     """
+    # some precondintions
+    assert gvecs.ndim <= 2 and gvecs.shape[-1] == 3
+    assert rmat_s.ndim <= 3 and rmat_s.shape[-2:] == (3, 3)
+    assert rmat_c.ndim == 2 and rmat_c.shape == (3, 3)
 
     # catch 1-d input and grab number of input vectors
-    gvec_c = np.atleast_2d(gvecs)
-    nvecs = len(gvecs)
+    nvecs = 1 if gvecs.ndim == 1 else len(gvecs)
+    nmats = 1 if rmat_s.ndim == 2 else len(rmat_s)
 
-    # initialize transformed gvec arrays
-    gvec_s = np.empty_like(gvecs)
-    gvec_l = np.empty_like(gvecs)
-
-    # squash out the case where rmat_s.shape is (1, 3, 3)
-    rmat_s = np.squeeze(rmat_s)
+    assert nvecs == 1 or nmats == 1 or nvecs==nmats
 
     # if bmat is specified, input are components in reiprocal lattice (h, k, l)
     if bmat is not None:
-        gvec_c = np.dot(gvec_c, bmat.T)
+        gvecs = np.dot(gvecs, bmat.T)
 
     # CRYSTAL FRAME --> SAMPLE FRAME
-    gvec_s = np.dot(gvec_c, rmat_c.T)
+    gvec_s = np.dot(gvecs, rmat_c.T)
     if vmat_inv is not None:
         gvec_s = np.dot(gvec_s, vmat_inv.T)
 
     # SAMPLE FRAME --> LAB FRAME
-    if rmat_s.ndim > 2:
-        # individual rmat_s for each vector
-        assert len(rmat_s) == nvecs, \
-            "len(rmat_s) must be %d for 3-d arg; you gave %d" \
-            % (nvecs, len(rmat_s))
-        for i in range(nvecs):
-            gvec_l[i] = np.dot(gvec_s[i], rmat_s[i].T)
+    if nmats > 1:
+        gvec_l = np.empty((nmats, 3))
+        if nvecs == 1:
+            for i in range(nmats):
+                gvec_l[i] = np.dot(gvec_s, rmat_s[i].T)
+        else:
+            for i in range(nmats):
+                gvec_l[i] = np.dot(gvec_s[i], rmat_s[i].T)
     else:
         # single rmat_s
         gvec_l = np.dot(gvec_s, rmat_s.T)
+
     return gvec_l
 
 
@@ -282,8 +283,12 @@ def gvec_to_xy(gvec_c,
     ztol = cnst.epsf
 
     # catch 1-d input case and initialize return array with NaNs
-    gvec_c = np.atleast_2d(gvec_c)
-    retval = np.nan * np.ones_like(gvec_c)
+    onedimensional = gvec_c.ndim == 1
+    if onedimensional:
+        gvec_c = np.atleast_2d(gvec_c)
+
+    retval = np.empty_like(gvec_c)
+    retval.fill(np.nan)
 
     nvec_l = rmat_d[:, 2]  # detector normal (LAB FRAME)
     bhat_l = unit_vector(beam_vec.flatten())  # unit beam vector
@@ -307,7 +312,6 @@ def gvec_to_xy(gvec_c,
                 gvec_c, rmat_s, rmat_c, bmat=bmat, vmat_inv=vmat_inv
                 )
             )
-
     # dot with beam vector (upstream, cone axis)
     bdot = np.dot(ghat_l, -bhat_l)
 
@@ -335,17 +339,18 @@ def gvec_to_xy(gvec_c,
 
         # displacement scaling (along dvec_l)
         u = np.dot(P3_l - P0_l, nvec_l) / denom
-
         # filter out non-intersections, fill with NaNs
         u[np.logical_or(dzero, cant_intersect)] = np.nan
 
+        u_tiled = np.tile(u, (3,1)).T
         # diffracted beam points IN DETECTOR FRAME
         P2_l = P0_l + np.tile(u, (3, 1)).T * dvec_l
         P2_d = np.dot(P2_l - tvec_d, rmat_d)
 
         # put feasible transformed gvec intersections into return array
         retval[can_diffract, :] = P2_d
-    return retval[:, :2]
+
+    return retval[0, :2] if onedimensional else retval[:,:2]
 
 
 @xf_api
