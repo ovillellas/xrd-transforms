@@ -10,6 +10,16 @@ m33_identity[3][3] = { { 1.0, 0.0, 0.0 },
                        { 0.0, 1.0, 0.0 },
                        { 0.0, 0.0, 1.0 } };
 
+/* copy into a linear vector a strided vector. */
+static inline
+void
+v3s_copy(const double *src, ptrdiff_t stride, double * restrict dst)
+{
+    dst[0] = src[0];
+    dst[1] = src[stride];
+    dst[2] = src[2*stride];
+}
+
 static inline
 void
 m33_set_identity(double *dst)
