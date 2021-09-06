@@ -7,21 +7,16 @@
 
 static void
 gvec_to_xy_single(const double *gVec_c, const double *rMat_d, const double *rMat_sc,
-                  const double *tVec_d, const double *bHat_l, const double *nVec_l,
+                  const double *tVec_d, const double *nbHat_l, const double *nVec_l,
                   const double num, const double *P0_l,
                   double * restrict result)
 {
-    int j, k;
     double bDot, ztol, denom, u;
-    double gHat_c[3], gVec_l[3], dVec_l[3], P2_l[3], nbHat_l[3];
+    double gHat_c[3], gVec_l[3], dVec_l[3], P2_l[3];
     double P2_l_minus_tVec_d[3];
     double brMat[9];
 
     ztol = epsf;
-
-    /* We systematically use the negated version of bHat_l, maybe bHat_l shoul
-       already come negated */
-    v3_negate(bHat_l, nbHat_l);
 
     /* Compute unit reciprocal lattice vector in crystal frame w/o translation */
     v3_normalize(gVec_c, gHat_c);
@@ -53,8 +48,7 @@ gvec_to_xy_single(const double *gVec_c, const double *rMat_d, const double *rMat
     /* P2_l-tVec_d is a point in the detector plane. As we are changing to th
        detector frame, the z coordinate will always be 0, so avoid computing
        it. Note that the result is an xy point (that is, 2d), so using a
-       m33_v3_multiply would result in a potential rogue memory write
-    */
+       m33_v3_multiply would result in a potential rogue memory write */
     result[0] = v3_v3s_dot(rMat_d, P2_l_minus_tVec_d, 1);
     result[1] = v3_v3s_dot(rMat_d + 3, P2_l_minus_tVec_d, 1);
 
@@ -72,17 +66,17 @@ gvec_to_xy(size_t npts, const double *gVec_c, const double *rMat_d,
            const double *tVec_s, const double *tVec_c, const double *beamVec,
            double * restrict result)
 {
-    size_t i, j, k, l;
+    size_t i;
     double num;
-    double nVec_l[3], bHat_l[3], P0_l[3], P3_l[3], tVec_d_s[3], tmp[3];
+    double nVec_l[3], bHat_l[3], P0_l[3], tVec_d_s[3], tmp[3];
     double rMat_sc[9];
 
     /* Normalize the beam vector */
-    v3_normalize(beamVec, bHat_l);
+    v3_negate(beamVec, bHat_l);
+    v3_inplace_normalize(bHat_l);
 
-    /* compute detector normal in LAB (nVec_l)
-       The normal will just be the Z column vector of rMat_d
-    */
+    /* compute detector normal in LAB (nVec_l) The normal will just be the Z
+       column vector of rMat_d */
     v3s_copy(rMat_d + 2, 3, nVec_l);
 
     /* tVec_d_s is the translation vector taking from sample to detector */
@@ -93,7 +87,8 @@ gvec_to_xy(size_t npts, const double *gVec_c, const double *rMat_d,
     v3_v3s_sub(tVec_d_s, P0_l, 1, tmp);
     num = v3_v3s_dot(nVec_l, tmp, 1);
 
-    /* accumulate rMat_s and rMat_c. rMat_sc is a COB Matrix from LAB to CRYSTAL */
+    /* accumulate rMat_s and rMat_c. rMat_sc is a COB Matrix from LAB to
+       CRYSTAL */
     m33_m33_multiply(rMat_s, rMat_c, rMat_sc);
 
     for (i=0L; i<npts; i++) {
@@ -114,14 +109,14 @@ gvec_to_xy_array(size_t npts, const double *gVec_c, const double *rMat_d,
                  const double *tVec_s, const double *tVec_c, const double *beamVec,
                  double * restrict result)
 {
-    size_t i, j, k, l;
-
+    size_t i;
     double num;
     double nVec_l[3], bHat_l[3], P0_l[3], tVec_d_s[3], tVec_d_c[3];
     double rMat_sc[9];
 
     /* Normalize the beam vector */
-    unit_row_vector(3,beamVec,bHat_l);
+    v3_negate(beamVec, bHat_l);
+    v3_inplace_normalize(bHat_l);
 
     /* compute detector normal in LAB (nVec_l)
        The normal will just be the Z column vector of rMat_d
