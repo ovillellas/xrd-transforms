@@ -22,7 +22,7 @@ gvec_to_xy_single(const double *gVec_c, const double *rMat_d, const double *rMat
     /* We systematically use the negated version of bHat_l, maybe bHat_l shoul
        already come negated */
     v3_negate(bHat_l, nbHat_l);
-    
+
     /* Compute unit reciprocal lattice vector in crystal frame w/o translation */
     v3_normalize(gVec_c, gHat_c);
 
@@ -44,7 +44,7 @@ gvec_to_xy_single(const double *gVec_c, const double *rMat_d, const double *rMat
 
     if ( denom > -ztol )
         goto no_diffraction;
-        
+
     u = num/denom;
 
     v3_v3s_muladd(P0_l, dVec_l, 1, u, P2_l);
@@ -59,7 +59,7 @@ gvec_to_xy_single(const double *gVec_c, const double *rMat_d, const double *rMat
     result[1] = v3_v3s_dot(rMat_d + 3, P2_l_minus_tVec_d, 1);
 
     return;
-    
+
  no_diffraction:
     result[0] = NAN;
     result[1] = NAN;
@@ -74,37 +74,27 @@ gvec_to_xy(size_t npts, const double *gVec_c, const double *rMat_d,
 {
     size_t i, j, k, l;
     double num;
-    double nVec_l[3], bHat_l[3], P0_l[3], P3_l[3];
+    double nVec_l[3], bHat_l[3], P0_l[3], P3_l[3], tVec_d_s[3], tmp[3];
     double rMat_sc[9];
 
     /* Normalize the beam vector */
     v3_normalize(beamVec, bHat_l);
 
-    /* Initialize the detector normal and frame origins */
-    num = 0.0;
-    for (j=0; j<3; j++) {
-        nVec_l[j] = 0.0;
-        P0_l[j]   = tVec_s[j];
+    /* compute detector normal in LAB (nVec_l)
+       The normal will just be the Z column vector of rMat_d
+    */
+    v3s_copy(rMat_d + 2, 3, nVec_l);
 
-        for (k=0; k<3; k++) {
-            nVec_l[j] += rMat_d[3*j+k]*Zl[k];
-            P0_l[j]   += rMat_s[3*j+k]*tVec_c[k];
-        }
+    /* tVec_d_s is the translation vector taking from sample to detector */
+    v3_v3s_sub(tVec_d, tVec_s, 1, tVec_d_s);
 
-        P3_l[j] = tVec_d[j];
+    /* P0_l <= tVec_s + rMat_s x tVec_c */
+    m33_v3s_multiply(rMat_s, tVec_c, 1, P0_l);
+    v3_v3s_sub(tVec_d_s, P0_l, 1, tmp);
+    num = v3_v3s_dot(nVec_l, tmp, 1);
 
-        num += nVec_l[j]*(P3_l[j]-P0_l[j]);
-    }
-
-    /* Compute the matrix product of rMat_s and rMat_c */
-    for (j=0; j<3; j++) {
-        for (k=0; k<3; k++) {
-            rMat_sc[3*j+k] = 0.0;
-            for (l=0; l<3; l++) {
-                rMat_sc[3*j+k] += rMat_s[3*j+l]*rMat_c[3*l+k];
-            }
-        }
-    }
+    /* accumulate rMat_s and rMat_c. rMat_sc is a COB Matrix from LAB to CRYSTAL */
+    m33_m33_multiply(rMat_s, rMat_c, rMat_sc);
 
     for (i=0L; i<npts; i++) {
         gvec_to_xy_single(&gVec_c[3*i], rMat_d, rMat_sc, tVec_d,
@@ -127,7 +117,7 @@ gvec_to_xy_array(size_t npts, const double *gVec_c, const double *rMat_d,
     size_t i, j, k, l;
 
     double num;
-    double nVec_l[3], bHat_l[3], P0_l[3], tVec_d_s[3], tmp[3];
+    double nVec_l[3], bHat_l[3], P0_l[3], tVec_d_s[3], tVec_d_c[3];
     double rMat_sc[9];
 
     /* Normalize the beam vector */
@@ -137,14 +127,15 @@ gvec_to_xy_array(size_t npts, const double *gVec_c, const double *rMat_d,
        The normal will just be the Z column vector of rMat_d
      */
     v3s_copy(rMat_d + 2, 3, nVec_l);
+
+    /* tVec_d_s is the translation from P2 to P1 (sample to detector) */
     v3_v3s_sub(tVec_d, tVec_s, 1, tVec_d_s);
-    /* m33_v3s_multiply( */
+
     for (i=0L; i<npts; i++) {
-        /* Initialize the detector normal and frame origins */
         /* P0_l <= tVec_s + rMat_s x tVec_c */
         m33_v3s_multiply(rMat_s + 9*i, tVec_c, 1, P0_l);
-        v3_v3s_sub(tVec_d_s, P0_l, 1, tmp);
-        num = v3_v3s_dot(nVec_l, tmp, 1);
+        v3_v3s_sub(tVec_d_s, P0_l, 1, tVec_d_c);
+        num = v3_v3s_dot(nVec_l, tVec_d_c, 1);
 
         /* Compute the matrix product of rMat_s and rMat_c */
         m33_m33_multiply(rMat_s + 9*i, rMat_c, rMat_sc);
