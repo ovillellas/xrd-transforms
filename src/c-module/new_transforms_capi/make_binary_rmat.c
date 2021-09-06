@@ -6,7 +6,7 @@
 
 
 XRD_CFUNCTION void
-make_binary_rmat(double *aPtr, double *rPtr)
+make_binary_rmat(const double *aPtr, double * restrict rPtr)
 {
     int i, j;
 

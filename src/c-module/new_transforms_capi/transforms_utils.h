@@ -18,10 +18,27 @@ m33_set_identity(double *dst)
 }
 
 
+static inline
+void
+v3_inplace_negate(double * restrict dst_src)
+{
+    dst_src[0] = -dst_src[0];
+    dst_src[1] = -dst_src[1];
+    dst_src[2] = -dst_src[2];
+}
+
+static inline
+void
+v3_negate(const double * src, double * restrict dst)
+{
+    dst[0] = -src[0];
+    dst[1] = -src[1];
+    dst[2] = -src[2];
+}
 
 static inline
 double *
-v3_v3s_inplace_add(double *dst_src1,
+v3_v3s_inplace_add(double * restrict dst_src1,
                    const double *src2, ptrdiff_t stride)
 {
     dst_src1[0] += src2[0];
@@ -29,6 +46,7 @@ v3_v3s_inplace_add(double *dst_src1,
     dst_src1[2] += src2[2*stride];
     return dst_src1;
 }
+
 
 static inline
 double *
@@ -43,6 +61,7 @@ v3_v3s_add(const double *src1,
     return dst;
 }
 
+
 static inline
 double *
 v3_v3s_inplace_sub(double *dst_src1,
@@ -53,6 +72,7 @@ v3_v3s_inplace_sub(double *dst_src1,
     dst_src1[2] -= src2[2*stride];
     return dst_src1;
 }
+
 
 static inline
 double *
@@ -68,10 +88,18 @@ v3_v3s_sub(const double *src1,
 }
 
 static inline
+double
+v3_v3s_dot(const double *v1,
+           const double *v2, ptrdiff_t stride)
+{
+    return v1[0]*v2[0] + v1[1]*v2[stride] + v1[2]*v2[2*stride];
+}
+
+static inline
 double *
 v3_inplace_normalize(double * restrict v)
 {
-    double sqr_norm = v[0]*v[0] + v[1]*v[1] + v[2]*v[2];
+    double sqr_norm = v3_v3s_dot(v, v, 1);
 
     if (sqr_norm > epsf) {
         double normalize_factor = 1./sqrt(sqr_norm);
@@ -83,26 +111,37 @@ v3_inplace_normalize(double * restrict v)
     return v;
 }
 
+
 static inline
 double *
 v3_normalize(const double *in,
              double * restrict out)
 {
-    double in0 = in[0], in1 = in[1], in2 = in[2];
-    double sqr_norm = in0*in0 + in1*in1 + in2*in2;
+    double sqr_norm = v3_v3s_dot(in, in, 1);
 
     if (sqr_norm > epsf) {
         double normalize_factor = 1./sqrt(sqr_norm);
-        out[0] = in0 * normalize_factor;
-        out[1] = in1 * normalize_factor;
-        out[2] = in2 * normalize_factor;
+        out[0] = in[0] * normalize_factor;
+        out[1] = in[1] * normalize_factor;
+        out[2] = in[2] * normalize_factor;
     } else {
-        out[0] = in0;
-        out[1] = in1;
-        out[2] = in2;
+        out[0] = in[0];
+        out[1] = in[1];
+        out[2] = in[2];
     }
 
     return out;
+}
+
+static inline
+void
+v3_v3s_muladd(const double *v1, const double *v2, ptrdiff_t stride,
+              double factor, double * restrict result)
+{
+    /* result = v1 + v2*factor */
+    result[0] = v1[0] + factor*v2[0];
+    result[1] = v1[1] + factor*v2[1*stride];
+    result[2] = v1[2] + factor*v2[2*stride];
 }
 
 static inline
@@ -122,6 +161,7 @@ m33_inplace_transpose(double * restrict m)
     return m;
 }
 
+
 static inline
 double *
 m33_transpose(const double *m,
@@ -132,14 +172,6 @@ m33_transpose(const double *m,
     dst[7] = m[2]; dst[8] = m[5]; dst[9] = m[9];
 
     return dst;
-}
-
-static inline
-double
-v3_v3s_dot(const double *v1,
-           const double *v2, ptrdiff_t stride)
-{
-    return v1[0]*v2[0] + v1[1]*v2[stride] + v1[2]*v2[2*stride];
 }
 
 
@@ -159,6 +191,7 @@ m33_v3s_multiply(const double *m,
     return dst;
 }
 
+
 /* transposed 3x3 matrix by strided 3 vector product --------------------------
  */
 static inline
@@ -175,6 +208,7 @@ v3s_m33t_multiply(const double *v, ptrdiff_t stride,
     return dst;
 }
 
+
 static inline
 double *
 v3s_m33_multiply(const double *v, ptrdiff_t stride,
@@ -189,6 +223,7 @@ v3s_m33_multiply(const double *v, ptrdiff_t stride,
     return dst;
 }
 
+
 static inline
 double *
 m33t_v3s_multiply(const double *m,
@@ -201,6 +236,7 @@ m33t_v3s_multiply(const double *m,
 
     return dst;
 }
+
 
 static inline
 double *
@@ -215,6 +251,7 @@ m33_m33_multiply(const double *src1,
     return dst;
 }
 
+
 static inline
 double *
 m33t_m33_multiply(const double *src1,
@@ -228,6 +265,7 @@ m33t_m33_multiply(const double *src1,
     return dst;
 }
 
+
 static inline
 double *
 m33_m33t_multiply(const double *src1,
@@ -237,6 +275,7 @@ m33_m33t_multiply(const double *src1,
     return m33_inplace_transpose(m33t_m33_multiply(src2, src1, dst));
 }
 
+
 static inline
 double *
 m33t_m33t_multiply(const double *src1,
@@ -244,6 +283,30 @@ m33t_m33t_multiply(const double *src1,
                    double * restrict dst)
 {
     return m33_inplace_transpose(m33_m33_multiply(src2, src1, dst));
+}
+
+static inline
+void
+v3_make_binary_rmat(const double *src, double * restrict dst)
+{
+    float s00 = 2*src[0]*src[0];
+    float s11 = 2*src[1]*src[1];
+    float s22 = 2*src[2]*src[2];
+    float s01 = 2*src[0]*src[1];
+    float s02 = 2*src[0]*src[2];
+    float s12 = 2*src[1]*src[2];
+    
+    dst[0] = s00 - 1.0;
+    dst[1] = s01;
+    dst[2] = s02;
+
+    dst[3] = s01;
+    dst[4] = s11 - 1.0;
+    dst[5] = s12;
+
+    dst[6] = s02;
+    dst[7] = s12;
+    dst[8] = s22 - 1.0;
 }
 
 #endif /* TRANSFORMS_UTILS_H */

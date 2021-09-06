@@ -6,78 +6,71 @@
 
 
 static void
-gvec_to_xy_single(double *gVec_c, double *rMat_d, double *rMat_sc,
-                           double *tVec_d, double *bHat_l, double *nVec_l,
-                           double num, double *P0_l, double *result)
+gvec_to_xy_single(const double *gVec_c, const double *rMat_d, const double *rMat_sc,
+                  const double *tVec_d, const double *bHat_l, const double *nVec_l,
+                  const double num, const double *P0_l,
+                  double * restrict result)
 {
     int j, k;
     double bDot, ztol, denom, u;
-    double gHat_c[3], gVec_l[3], dVec_l[3], P2_l[3], P2_d[3];
+    double gHat_c[3], gVec_l[3], dVec_l[3], P2_l[3], nbHat_l[3];
+    double P2_l_minus_tVec_d[3];
     double brMat[9];
 
     ztol = epsf;
 
+    /* We systematically use the negated version of bHat_l, maybe bHat_l shoul
+       already come negated */
+    v3_negate(bHat_l, nbHat_l);
+    
     /* Compute unit reciprocal lattice vector in crystal frame w/o translation */
-    unit_row_vector(3, gVec_c, gHat_c);
+    v3_normalize(gVec_c, gHat_c);
 
     /*
 	 * Compute unit reciprocal lattice vector in lab frame
 	 * and dot with beam vector
 	 */
-    bDot = 0.0;
-    for (j=0; j<3; j++) {
-        gVec_l[j] = 0.0;
-        for (k=0; k<3; k++)
-            gVec_l[j] += rMat_sc[3*j+k]*gHat_c[k];
+    m33_v3s_multiply(rMat_sc, gHat_c, 1, gVec_l);
+    bDot = v3_v3s_dot(nbHat_l, gVec_l, 1);
 
-        bDot -= bHat_l[j]*gVec_l[j];
-    }
+    if ( bDot < ztol && bDot > 1.0-ztol )
+        goto no_diffraction;
 
-    if ( bDot >= ztol && bDot <= 1.0-ztol ) {
-        /*
-		 * If we are here diffraction is possible so increment
-		 * the number of admissable vectors
-		 */
-        make_binary_rmat(gVec_l, brMat);
+    /* diffraction */
+    v3_make_binary_rmat(gVec_l, brMat);
 
-        denom = 0.0;
-        for (j=0; j<3; j++) {
-            dVec_l[j] = 0.0;
-            for (k=0; k<3; k++)
-                dVec_l[j] -= brMat[3*j+k]*bHat_l[k];
+    m33_v3s_multiply(brMat, nbHat_l, 1, dVec_l);
+    denom = v3_v3s_dot(nVec_l, dVec_l, 1);
 
-            denom += nVec_l[j]*dVec_l[j];
-        }
+    if ( denom > -ztol )
+        goto no_diffraction;
+        
+    u = num/denom;
 
-        if ( denom < -ztol ) {
+    v3_v3s_muladd(P0_l, dVec_l, 1, u, P2_l);
+    v3_v3s_sub(P2_l, tVec_d, 1, P2_l_minus_tVec_d);
 
-            u = num/denom;
+    /* P2_l-tVec_d is a point in the detector plane. As we are changing to th
+       detector frame, the z coordinate will always be 0, so avoid computing
+       it. Note that the result is an xy point (that is, 2d), so using a
+       m33_v3_multiply would result in a potential rogue memory write
+    */
+    result[0] = v3_v3s_dot(rMat_d, P2_l_minus_tVec_d, 1);
+    result[1] = v3_v3s_dot(rMat_d + 3, P2_l_minus_tVec_d, 1);
 
-            for (j=0; j<3; j++)
-                P2_l[j] = P0_l[j]+u*dVec_l[j];
-
-            for (j=0; j<2; j++) {
-                P2_d[j] = 0.0;
-                for (k=0; k<3; k++)
-                    P2_d[j] += rMat_d[3*k+j]*(P2_l[k]-tVec_d[k]);
-                result[j] = P2_d[j];
-            }
-        } else {
-            result[0] = NAN;
-            result[1] = NAN;
-        }
-
-    } else {
-        result[0] = NAN;
-        result[1] = NAN;
-    }
+    return;
+    
+ no_diffraction:
+    result[0] = NAN;
+    result[1] = NAN;
+    return;
 }
 
 XRD_CFUNCTION void
-gvec_to_xy(size_t npts, double *gVec_c, double *rMat_d,
-           double *rMat_s, double *rMat_c, double *tVec_d,
-           double *tVec_s, double *tVec_c, double *beamVec,
-           double * result)
+gvec_to_xy(size_t npts, const double *gVec_c, const double *rMat_d,
+           const double *rMat_s, const double *rMat_c, const double *tVec_d,
+           const double *tVec_s, const double *tVec_c, const double *beamVec,
+           double * restrict result)
 {
     size_t i, j, k, l;
     double num;
@@ -126,10 +119,10 @@ gvec_to_xy(size_t npts, double *gVec_c, double *rMat_d,
  * of a single matrix.
  */
 XRD_CFUNCTION void
-gvec_to_xy_array(size_t npts, double *gVec_c, double *rMat_d,
-                 double *rMat_s, double *rMat_c, double *tVec_d,
-                 double *tVec_s, double *tVec_c, double *beamVec,
-                 double * result)
+gvec_to_xy_array(size_t npts, const double *gVec_c, const double *rMat_d,
+                 const double *rMat_s, const double *rMat_c, const double *tVec_d,
+                 const double *tVec_s, const double *tVec_c, const double *beamVec,
+                 double * restrict result)
 {
     size_t i, j, k, l;
 

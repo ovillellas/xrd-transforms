@@ -14,17 +14,18 @@ angles_to_dvec(size_t nvecs, double *angs, double *bHat_l, double *eHat_l,
                double chi, double *rMat_c, double * gVec_c);
 
 XRD_CFUNCTION void
-gvec_to_xy(size_t npts, double *gVec_c_Ptr, double* rMat_d_Ptr,
-           double *rMat_s_Ptr, double *rMat_c_Ptr, double *tVec_d_Ptr,
-           double *tVec_s_Ptr, double *tVec_c_Ptr, double *beamVec_Ptr,
-           double * result_Ptr);
+gvec_to_xy(size_t npts, const double *gVec_c_Ptr, const double *rMat_d_Ptr,
+           const double *rMat_s_Ptr, const double *rMat_c_Ptr,
+           const double *tVec_d_Ptr, const double *tVec_s_Ptr,
+           const double *tVec_c_Ptr, const double *beamVec_Ptr,
+           double * restrict result_Ptr);
 
 XRD_CFUNCTION void
-gvec_to_xy_array(size_t npts, double *gVec_c_Ptr, double *rMat_d_Ptr,
-                 double *rMat_s_Ptr, double *rMat_c_Ptr,
-                 double *tVec_d_Ptr, double *tVec_s_Ptr,
-                 double *tVec_c_Ptr, double *beamVec_Ptr,
-                 double *result_Ptr);
+gvec_to_xy_array(size_t npts, const double *gVec_c_Ptr, const double *rMat_d_Ptr,
+                 const double *rMat_s_Ptr, const double *rMat_c_Ptr,
+                 const double *tVec_d_Ptr, const double *tVec_s_Ptr,
+                 const double *tVec_c_Ptr, const double *beamVec_Ptr,
+                 double * restrict result_Ptr);
 
 XRD_CFUNCTION void
 xy_to_gvec(size_t npts, double *xy, double *rMat_d, double *rMat_s,
@@ -57,7 +58,7 @@ XRD_CFUNCTION void
 make_rmat_of_expmap(double *ePtr, double *rPtr);
 
 XRD_CFUNCTION void
-make_binary_rmat(double *aPtr, double *rPtr);
+make_binary_rmat(const double *aPtr, double * restrict rPtr);
 
 #define TF_MAKE_BEAM_RMAT_ERR_BEAM_ZERO 1
 #define TF_MAKE_BEAM_RMAT_ERR_COLLINEAR 2
