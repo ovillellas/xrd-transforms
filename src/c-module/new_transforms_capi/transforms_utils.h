@@ -145,13 +145,13 @@ v3_normalize(const double *in,
 
 static inline
 void
-v3_v3s_muladd(const double *v1, const double *v2, ptrdiff_t stride,
-              double factor, double * restrict result)
+v3s_s_v3_muladd(const double *v1, ptrdiff_t stride, double factor,
+                const double *v2, double * restrict result)
 {
-    /* result = v1 + v2*factor */
-    result[0] = v1[0] + factor*v2[0];
-    result[1] = v1[1] + factor*v2[1*stride];
-    result[2] = v1[2] + factor*v2[2*stride];
+    /* result = v1*factor + v2 */
+    result[0] = factor*v1[0] + v2[0];
+    result[1] = factor*v1[1*stride] + v2[1];
+    result[2] = factor*v1[2*stride] + v2[2];
 }
 
 static inline

@@ -5,27 +5,46 @@
 #endif
 
 
+/*
+  returns N, where N solves N*vect+origin laying in the plane defined by plane.
+
+  origin -> point where the ray starts.
+  vect -> direction vector for the ray.
+  plane -> vector[4] for A B C D in the plane formula Ax + By + Cz + D = 0. Note
+           this means that (A, B, C) is the plane normal.
+
+  Note that an N value will always be returned. In case of the line being
+  parallel to the plane, an infinity will be generated. In case of the plane
+  being "behind" the plane, a negative value will be generated.
+ */
+static inline
+double
+RayPlaneIntersect(const double *origin, const double *vect,
+                  const double *plane)
+{
+    return (plane[3] - v3_v3s_dot(plane, origin, 1)) / v3_v3s_dot(plane, vect, 1);
+}
+
 static void
 gvec_to_xy_single(const double *gVec_c, const double *rMat_d, const double *rMat_sc,
                   const double *tVec_d, const double *nbHat_l, const double *nVec_l,
-                  const double num, const double *P0_l,
+                  const double num, const double *P0_d,
                   double * restrict result)
 {
     double bDot, ztol, denom, u;
-    double gHat_c[3], gVec_l[3], dVec_l[3], P2_l[3];
-    double P2_l_minus_tVec_d[3];
+    double gVec_l[3], dVec_l[3];
+    double P2_d[3];
     double brMat[9];
 
     ztol = epsf;
 
     /* Compute unit reciprocal lattice vector in crystal frame w/o translation */
-    v3_normalize(gVec_c, gHat_c);
 
     /*
 	 * Compute unit reciprocal lattice vector in lab frame
 	 * and dot with beam vector
 	 */
-    m33_v3s_multiply(rMat_sc, gHat_c, 1, gVec_l);
+    m33_v3s_multiply(rMat_sc, gVec_c, 1, gVec_l);
     bDot = v3_v3s_dot(nbHat_l, gVec_l, 1);
 
     if ( bDot < ztol && bDot > 1.0-ztol )
@@ -42,15 +61,13 @@ gvec_to_xy_single(const double *gVec_c, const double *rMat_d, const double *rMat
 
     u = num/denom;
 
-    v3_v3s_muladd(P0_l, dVec_l, 1, u, P2_l);
-    v3_v3s_sub(P2_l, tVec_d, 1, P2_l_minus_tVec_d);
-
-    /* P2_l-tVec_d is a point in the detector plane. As we are changing to th
+    v3s_s_v3_muladd(dVec_l, 1, u, P0_d,  P2_d);
+    /* P2_d is a point in the detector plane. As we are changing to th
        detector frame, the z coordinate will always be 0, so avoid computing
        it. Note that the result is an xy point (that is, 2d), so using a
        m33_v3_multiply would result in a potential rogue memory write */
-    result[0] = v3_v3s_dot(rMat_d, P2_l_minus_tVec_d, 1);
-    result[1] = v3_v3s_dot(rMat_d + 3, P2_l_minus_tVec_d, 1);
+    result[0] = v3_v3s_dot(rMat_d, P2_d, 1);
+    result[1] = v3_v3s_dot(rMat_d + 3, P2_d, 1);
 
     return;
 
@@ -59,6 +76,7 @@ gvec_to_xy_single(const double *gVec_c, const double *rMat_d, const double *rMat
     result[1] = NAN;
     return;
 }
+
 
 XRD_CFUNCTION void
 gvec_to_xy(size_t npts, const double *gVec_c, const double *rMat_d,
@@ -69,6 +87,7 @@ gvec_to_xy(size_t npts, const double *gVec_c, const double *rMat_d,
     size_t i;
     double num;
     double nVec_l[3], bHat_l[3], P0_l[3], tVec_d_s[3], tmp[3];
+    double P0_d[3];
     double rMat_sc[9];
 
     /* Normalize the beam vector */
@@ -85,6 +104,7 @@ gvec_to_xy(size_t npts, const double *gVec_c, const double *rMat_d,
     /* P0_l <= tVec_s + rMat_s x tVec_c */
     m33_v3s_multiply(rMat_s, tVec_c, 1, P0_l);
     v3_v3s_sub(tVec_d_s, P0_l, 1, tmp);
+    v3_v3s_sub(P0_l, tVec_d, 1, P0_d);
     num = v3_v3s_dot(nVec_l, tmp, 1);
 
     /* accumulate rMat_s and rMat_c. rMat_sc is a COB Matrix from LAB to
@@ -94,7 +114,7 @@ gvec_to_xy(size_t npts, const double *gVec_c, const double *rMat_d,
     for (i=0L; i<npts; i++) {
         gvec_to_xy_single(&gVec_c[3*i], rMat_d, rMat_sc, tVec_d,
                           bHat_l, nVec_l, num,
-                          P0_l, &result[2*i]);
+                          P0_d, &result[2*i]);
     }
 }
 
@@ -112,6 +132,7 @@ gvec_to_xy_array(size_t npts, const double *gVec_c, const double *rMat_d,
     size_t i;
     double num;
     double nVec_l[3], bHat_l[3], P0_l[3], tVec_d_s[3], tVec_d_c[3];
+    double P0_d[3];
     double rMat_sc[9];
 
     /* Normalize the beam vector */
@@ -130,6 +151,8 @@ gvec_to_xy_array(size_t npts, const double *gVec_c, const double *rMat_d,
         /* P0_l <= tVec_s + rMat_s x tVec_c */
         m33_v3s_multiply(rMat_s + 9*i, tVec_c, 1, P0_l);
         v3_v3s_sub(tVec_d_s, P0_l, 1, tVec_d_c);
+        v3_v3s_sub(P0_l, tVec_d, 1, P0_d);
+
         num = v3_v3s_dot(nVec_l, tVec_d_c, 1);
 
         /* Compute the matrix product of rMat_s and rMat_c */
@@ -137,7 +160,7 @@ gvec_to_xy_array(size_t npts, const double *gVec_c, const double *rMat_d,
 
         gvec_to_xy_single(&gVec_c[3*i], rMat_d, rMat_sc, tVec_d,
                           bHat_l, nVec_l, num,
-                          P0_l, &result[2*i]);
+                          P0_d, &result[2*i]);
     }
 }
 
