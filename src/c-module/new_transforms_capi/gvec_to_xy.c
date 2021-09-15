@@ -27,14 +27,13 @@ RayPlaneIntersect(const double *origin, const double *vect,
 
 static void
 gvec_to_xy_single(const double *gVec_c, const double *rMat_d, const double *rMat_sc,
-                  const double *tVec_d, const double *nbHat_l, const double *nVec_l,
-                  const double num, const double *P0_d,
+                  const double *tVec_d, const double *nVec_l,
+                  const double num, const double *tVec_dc,
                   double * restrict result)
 {
     double bDot, ztol, denom, u;
     double gVec_l[3], dVec_l[3];
     double P2_d[3];
-    double brMat[9];
 
     ztol = epsf;
 
@@ -45,15 +44,17 @@ gvec_to_xy_single(const double *gVec_c, const double *rMat_d, const double *rMat
 	 * and dot with beam vector
 	 */
     m33_v3s_multiply(rMat_sc, gVec_c, 1, gVec_l);
-    bDot = v3_v3s_dot(nbHat_l, gVec_l, 1);
+    bDot = gVec_l[2];
 
     if ( bDot < ztol && bDot > 1.0-ztol )
         goto no_diffraction;
 
-    /* diffraction */
-    v3_make_binary_rmat(gVec_l, brMat);
-
-    m33_v3s_multiply(brMat, nbHat_l, 1, dVec_l);
+    /* diffraction directly on a vector. Assumes beam vector is { 0, 0, 1},
+       so that only the last column of the binary_rmat is needed
+    */
+    dVec_l[0] = 2*gVec_l[0]*gVec_l[2];
+    dVec_l[1] = 2*gVec_l[1]*gVec_l[2];
+    dVec_l[2] = 2*gVec_l[2]*gVec_l[2] - 1.0;
     denom = v3_v3s_dot(nVec_l, dVec_l, 1);
 
     if ( denom > -ztol )
@@ -61,7 +62,7 @@ gvec_to_xy_single(const double *gVec_c, const double *rMat_d, const double *rMat
 
     u = num/denom;
 
-    v3s_s_v3_muladd(dVec_l, 1, u, P0_d,  P2_d);
+    v3s_s_v3_muladd(dVec_l, 1, -u, tVec_dc,  P2_d);
     /* P2_d is a point in the detector plane. As we are changing to th
        detector frame, the z coordinate will always be 0, so avoid computing
        it. Note that the result is an xy point (that is, 2d), so using a
@@ -79,42 +80,42 @@ gvec_to_xy_single(const double *gVec_c, const double *rMat_d, const double *rMat
 
 
 XRD_CFUNCTION void
-gvec_to_xy(size_t npts, const double *gVec_c, const double *rMat_d,
-           const double *rMat_s, const double *rMat_c, const double *tVec_d,
-           const double *tVec_s, const double *tVec_c, const double *beamVec,
+gvec_to_xy(size_t npts, const double *gVec_c,
+           const double *rMat_d, const double *rMat_s, const double *rMat_c,
+           const double *tVec_d, const double *tVec_s, const double *tVec_c,
            double * restrict result)
 {
     size_t i;
     double num;
-    double nVec_l[3], bHat_l[3], P0_l[3], tVec_d_s[3], tmp[3];
-    double P0_d[3];
+    double nVec_l[3], tVec_sc[3], tVec_ds[3], tVec_dc[3];
     double rMat_sc[9];
 
-    /* Normalize the beam vector */
-    v3_negate(beamVec, bHat_l);
-    v3_inplace_normalize(bHat_l);
-
-    /* compute detector normal in LAB (nVec_l) The normal will just be the Z
-       column vector of rMat_d */
+    /*
+       compute detector normal in LAB (nVec_l)
+       the normal will just be the Z column vector of rMat_d
+    */
     v3s_copy(rMat_d + 2, 3, nVec_l);
 
-    /* tVec_d_s is the translation vector taking from sample to detector */
-    v3_v3s_sub(tVec_d, tVec_s, 1, tVec_d_s);
+    /* tVec_ds is the translation from DETECTOR to SAMPLE */
+    v3_v3s_sub(tVec_s, tVec_d, 1, tVec_ds);
 
-    /* P0_l <= tVec_s + rMat_s x tVec_c */
-    m33_v3s_multiply(rMat_s, tVec_c, 1, P0_l);
-    v3_v3s_sub(tVec_d_s, P0_l, 1, tmp);
-    v3_v3s_sub(P0_l, tVec_d, 1, P0_d);
-    num = v3_v3s_dot(nVec_l, tmp, 1);
+    /*
+       tVec_dc <= tVec_s + rMat_s x tVec_c
+       tVec_sc is transform from SAMPLE to CRYSTAL
+       tVec_dc is transform from DETECTOR to CRYSTAL
+     */
+    m33_v3s_multiply(rMat_s, tVec_c, 1, tVec_sc);
+    v3_v3s_add(tVec_ds, tVec_sc, 1, tVec_dc);
+
+    num = v3_v3s_dot(nVec_l, tVec_dc, 1);
 
     /* accumulate rMat_s and rMat_c. rMat_sc is a COB Matrix from LAB to
        CRYSTAL */
     m33_m33_multiply(rMat_s, rMat_c, rMat_sc);
 
     for (i=0L; i<npts; i++) {
-        gvec_to_xy_single(&gVec_c[3*i], rMat_d, rMat_sc, tVec_d,
-                          bHat_l, nVec_l, num,
-                          P0_d, &result[2*i]);
+        gvec_to_xy_single(gVec_c + 3*i, rMat_d, rMat_sc, tVec_d,
+                          nVec_l, num, tVec_dc, result + 2*i);
     }
 }
 
@@ -124,43 +125,41 @@ gvec_to_xy(size_t npts, const double *gVec_c, const double *rMat_d,
  * of a single matrix.
  */
 XRD_CFUNCTION void
-gvec_to_xy_array(size_t npts, const double *gVec_c, const double *rMat_d,
-                 const double *rMat_s, const double *rMat_c, const double *tVec_d,
-                 const double *tVec_s, const double *tVec_c, const double *beamVec,
+gvec_to_xy_array(size_t npts, const double *gVec_c,
+                 const double *rMat_d, const double *rMat_ss, const double *rMat_c,
+                 const double *tVec_d, const double *tVec_s, const double *tVec_c,
                  double * restrict result)
 {
     size_t i;
     double num;
-    double nVec_l[3], bHat_l[3], P0_l[3], tVec_d_s[3], tVec_d_c[3];
-    double P0_d[3];
+    double nVec_l[3], tVec_sc[3], tVec_ds[3], tVec_dc[3];
     double rMat_sc[9];
-
-    /* Normalize the beam vector */
-    v3_negate(beamVec, bHat_l);
-    v3_inplace_normalize(bHat_l);
-
-    /* compute detector normal in LAB (nVec_l)
+    /*
+      compute detector normal in LAB (nVec_l)
        The normal will just be the Z column vector of rMat_d
      */
     v3s_copy(rMat_d + 2, 3, nVec_l);
 
-    /* tVec_d_s is the translation from P2 to P1 (sample to detector) */
-    v3_v3s_sub(tVec_d, tVec_s, 1, tVec_d_s);
+    /* tVec_fd is the translation from DETECTOR to SAMPLE */
+    v3_v3s_sub(tVec_s, tVec_d, 1, tVec_ds);
 
     for (i=0L; i<npts; i++) {
-        /* P0_l <= tVec_s + rMat_s x tVec_c */
-        m33_v3s_multiply(rMat_s + 9*i, tVec_c, 1, P0_l);
-        v3_v3s_sub(tVec_d_s, P0_l, 1, tVec_d_c);
-        v3_v3s_sub(P0_l, tVec_d, 1, P0_d);
+        const double *rMat_s = rMat_ss + 9*i;
+        /*
+           tVec_dc <= tVec_s + rMat_s x tVec_c
+           tVec_sc is transform from SAMPLE to CRYSTAL
+           tVec_dc is transform from DETECTOR to CRYSTAL
+        */
+        m33_v3s_multiply(rMat_s, tVec_c, 1, tVec_sc);
+        v3_v3s_add(tVec_ds, tVec_sc, 1, tVec_dc);
 
-        num = v3_v3s_dot(nVec_l, tVec_d_c, 1);
+        num = v3_v3s_dot(nVec_l, tVec_dc, 1);
 
         /* Compute the matrix product of rMat_s and rMat_c */
-        m33_m33_multiply(rMat_s + 9*i, rMat_c, rMat_sc);
+        m33_m33_multiply(rMat_s, rMat_c, rMat_sc);
 
-        gvec_to_xy_single(&gVec_c[3*i], rMat_d, rMat_sc, tVec_d,
-                          bHat_l, nVec_l, num,
-                          P0_d, &result[2*i]);
+        gvec_to_xy_single(gVec_c + 3*i, rMat_d, rMat_sc, tVec_d,
+                          nVec_l, num, tVec_dc, result + 2*i);
     }
 }
 
@@ -273,13 +272,13 @@ python_gvecToDetectorXY(PyObject * self, PyObject * args)
 
     beamVec_Ptr = (double*)PyArray_DATA(beamVec);
 
-    result_Ptr     = (double*)PyArray_DATA(result);
+    result_Ptr  = (double*)PyArray_DATA(result);
 
     /* Call the computational routine */
     gvec_to_xy(npts, gVec_c_Ptr,
                rMat_d_Ptr, rMat_s_Ptr, rMat_c_Ptr,
                tVec_d_Ptr, tVec_s_Ptr, tVec_c_Ptr,
-               beamVec_Ptr,
+               /*               beamVec_Ptr,*/
                result_Ptr);
 
     /* Build and return the nested data structure */
@@ -383,13 +382,13 @@ python_gvecToDetectorXYArray(PyObject * self, PyObject * args)
 
     beamVec_Ptr = (double*)PyArray_DATA(beamVec);
 
-    result_Ptr     = (double*)PyArray_DATA(result);
+    result_Ptr  = (double*)PyArray_DATA(result);
 
     /* Call the computational routine */
     gvec_to_xy_array(npts, gVec_c_Ptr,
                      rMat_d_Ptr, rMat_s_Ptr, rMat_c_Ptr,
                      tVec_d_Ptr, tVec_s_Ptr, tVec_c_Ptr,
-                     beamVec_Ptr,
+                     /*                     beamVec_Ptr,*/
                      result_Ptr);
 
     /* Build and return the nested data structure */
