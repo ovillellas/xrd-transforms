@@ -105,6 +105,26 @@ v3_v3s_dot(const double *v1,
     return v1[0]*v2[0] + v1[1]*v2[stride] + v1[2]*v2[2*stride];
 }
 
+/* real + dot(v1, v2) */
+static inline
+double
+v3_v3s_add_dot(double real,
+               const double *v1,
+               const double *v2, ptrdiff_t stride)
+{
+    return real + v1[0]*v2[0] + v1[1]*v2[stride] + v1[2]*v2[2*stride];
+}
+
+/* real - dot(v1, v2) */
+static inline
+double
+v3_v3s_sub_dot(double real,
+               const double *v1,
+               const double *v2, ptrdiff_t stride)
+{
+    return real - v1[0]*v2[0] - v1[1]*v2[stride] - v1[2]*v2[2*stride];
+}
+
 static inline
 double *
 v3_inplace_normalize(double * restrict v)
@@ -317,6 +337,22 @@ v3_make_binary_rmat(const double *src, double * restrict dst)
     dst[6] = s02;
     dst[7] = s12;
     dst[8] = s22 - 1.0;
+}
+
+static inline
+print_m33(const char *name, const double *arr)
+{
+    printf("\n%s:\n", name);
+    printf("  %8.6f, %8.6f, %8.6f\n", arr[0], arr[1], arr[2]);
+    printf("  %8.6f, %8.6f, %8.6f\n", arr[3], arr[4], arr[5]);
+    printf("  %8.6f, %8.6f, %8.6f\n", arr[6], arr[7], arr[8]);
+}
+
+static inline
+print_v3(const char *name, const double *vec)
+{
+    printf("\n%s:\n", name);
+    printf("  %8.6f, %8.6f, %8.6f\n", vec[0], vec[1], vec[2]);
 }
 
 #endif /* TRANSFORMS_UTILS_H */
