@@ -340,6 +340,7 @@ v3_make_binary_rmat(const double *src, double * restrict dst)
 }
 
 static inline
+void
 print_m33(const char *name, const double *arr)
 {
     printf("\n%s:\n", name);
@@ -349,6 +350,7 @@ print_m33(const char *name, const double *arr)
 }
 
 static inline
+void
 print_v3(const char *name, const double *vec)
 {
     printf("\n%s:\n", name);
