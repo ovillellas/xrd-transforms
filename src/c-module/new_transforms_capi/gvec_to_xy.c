@@ -4,6 +4,20 @@
 #  include "transforms_prototypes.h"
 #endif
 
+/*
+  computes the diffraction vector for the G vector ```gvec```
+  Assumes the inciding beam vector is the Z unit vector {0,0,1}
+*/
+static inline
+void
+diffract_z(const double *gvec, double * restrict diffracted)
+{
+    diffracted[0] = 2*gvec[0]*gvec[2];
+    diffracted[1] = 2*gvec[1]*gvec[2];
+    diffracted[2] = 2*gvec[2]*gvec[2] - 1.0;
+}
+
+
 
 /*
   returns N, where N solves N*vect+origin laying in the plane defined by plane.
@@ -13,35 +27,42 @@
   plane -> vector[4] for A B C D in the plane formula Ax + By + Cz + D = 0. Note
            this means that (A, B, C) is the plane normal.
 
-  Note that an N value will always be returned. In case of the line being
-  parallel to the plane, an infinity will be generated. In case of the plane
-  being "behind" the plane, a negative value will be generated.
+  returns 1 on intersection, 0 if there is no intersection. In case of
+  intersection, the intersecting point will be filled in
+  collision_point. Otherwise collision_point will be left untouched.
+
+  Note this code does not handle division by 0. on IEEE-754 arithmetic t may
+  become an infinity in that case. The result would be infinity in the resulting
+  collision point. As the result is going to be clipped at some point, this
+  should not be a problem.
  */
 static inline
-double
-RayPlaneIntersect(const double *origin, const double *vect,
-                  const double *plane)
+int
+ray_plane_intersect(const double *origin, const double *vect,
+                    const double *plane, double * restrict collision_point)
 {
-    return (plane[3] - v3_v3s_dot(plane, origin, 1)) / v3_v3s_dot(plane, vect, 1);
+    double t;
+    t = (plane[3] - v3_v3s_dot(plane, origin, 1)) / v3_v3s_dot(plane, vect, 1);
+    if (t < 0.0)
+        return 0;
+    v3s_s_v3_muladd(vect, 1, t, origin, collision_point); 
+    return 1;
 }
 
+#if 0
 static void
-gvec_to_xy_single(const double *gVec_l, const double *rMat_d,
+gvec_to_xy_single(const double *ray_vector, const double *rMat_d,
                   const double *tVec_d, const double *nVec_l,
                   const double num, const double *tVec_dc,
                   double * restrict result)
 {
-    double bDot, denom, u;
-    double dVec_l[3];
+    double denom, u;
     double P2_d[3];
 
     /* diffraction directly on a vector. Assumes beam vector is { 0, 0, 1},
        so that only the last column of the binary_rmat is needed
     */
-    dVec_l[0] = 2*gVec_l[0]*gVec_l[2];
-    dVec_l[1] = 2*gVec_l[1]*gVec_l[2];
-    dVec_l[2] = 2*gVec_l[2]*gVec_l[2] - 1.0;
-    denom = v3_v3s_dot(nVec_l, dVec_l, 1);
+    denom = v3_v3s_dot(nVec_l, ray_vector, 1);
 
     u = -num/denom;
 
@@ -52,7 +73,7 @@ gvec_to_xy_single(const double *gVec_l, const double *rMat_d,
     if (u < 0.0)
         goto no_diffraction;
 
-    v3s_s_v3_muladd(dVec_l, 1, u, tVec_dc,  P2_d);
+    v3s_s_v3_muladd(ray_vector, 1, u, tVec_dc,  P2_d);
     /* P2_d is a point in the detector plane. As we are changing to th
        detector frame, the z coordinate will always be 0, so avoid computing
        it. Note that the result is an xy point (that is, 2d), so using a
@@ -67,7 +88,7 @@ gvec_to_xy_single(const double *gVec_l, const double *rMat_d,
     result[1] = NAN;
     return;
 }
-
+#endif
 
 XRD_CFUNCTION void
 gvec_to_xy(size_t npts, const double *gVec_c,
@@ -76,15 +97,18 @@ gvec_to_xy(size_t npts, const double *gVec_c,
            double * restrict result)
 {
     size_t i;
-    double num;
-    double nVec_l[3], tVec_sc[3], tVec_ds[3], tVec_dc[3];
+    double plane[4], tVec_sc[3], tVec_ds[3], ray_origin[3];
     double rMat_sc[9];
 
     /*
-       compute detector normal in LAB (nVec_l)
-       the normal will just be the Z column vector of rMat_d
+      We will be colliding in lab coordinates centered at the detector position.
+      This means that 'D' in the plane formula will be 0 (origin lies within the
+      plane). The plane normal can be extracted from the COB to DETECTOR, as
+      DETECTOR frame as it is defined as its z unit vector being normal to the
+      plane;
     */
-    v3s_copy(rMat_d + 2, 3, nVec_l);
+    v3s_copy(rMat_d + 2, 3, plane);
+    plane[3] = 0.0;
 
     /* tVec_ds is the translation from DETECTOR to SAMPLE */
     v3_v3s_sub(tVec_s, tVec_d, 1, tVec_ds);
@@ -95,20 +119,31 @@ gvec_to_xy(size_t npts, const double *gVec_c,
        tVec_dc is transform from DETECTOR to CRYSTAL
      */
     m33_v3s_multiply(rMat_s, tVec_c, 1, tVec_sc);
-    v3_v3s_add(tVec_ds, tVec_sc, 1, tVec_dc);
-
-    num = v3_v3s_dot(nVec_l, tVec_dc, 1);
+    v3_v3s_add(tVec_ds, tVec_sc, 1, ray_origin);
 
     /* accumulate rMat_s and rMat_c. rMat_sc is a COB Matrix from LAB to
        CRYSTAL */
     m33_m33_multiply(rMat_s, rMat_c, rMat_sc);
 
     for (i=0L; i<npts; i++) {
-        double gVec_l[3];
+        double gVec_l[3], ray_vector[3], point[3];
 
-        m33_v3s_multiply(rMat_sc, gVec_c + 3*i, 1, gVec_l); 
-        gvec_to_xy_single(gVec_l, rMat_d, tVec_d,
-                          nVec_l, num, tVec_dc, result + 2*i);
+        m33_v3s_multiply(rMat_sc, gVec_c + 3*i, 1, gVec_l);
+        diffract_z(gVec_l, ray_vector);
+
+        if (0 == ray_plane_intersect(ray_origin, ray_vector, plane, point))
+        {
+            /* no intersection */
+            result[2*i] = NAN;
+            result[2*i + 1] = NAN;
+            continue;
+        }
+        /* 
+           project into DETECTOR coordinates. Only ```x``` and ```y``` as
+           ```z``` will always be 0.0
+        */
+        result[2*i] = v3_v3s_dot(rMat_d, point, 1);
+        result[2*i+1] = v3_v3s_dot(rMat_d + 3, point, 1);
     }
 }
 
@@ -118,44 +153,69 @@ gvec_to_xy(size_t npts, const double *gVec_c,
  * of a single matrix.
  */
 XRD_CFUNCTION void
-gvec_to_xy_array(size_t npts, const double *gVec_c,
+gvec_to_xy_array(size_t npts, const double *gVec_cs,
                  const double *rMat_d, const double *rMat_ss, const double *rMat_c,
                  const double *tVec_d, const double *tVec_s, const double *tVec_c,
                  double * restrict result)
 {
     size_t i;
-    double nVec_l[3], tVec_sc[3], tVec_ds[3];
-    double rMat_sc[9];
+    double plane[4], tVec_sc[3], tVec_ds[3];
+
     /*
       compute detector normal in LAB (nVec_l)
        The normal will just be the Z column vector of rMat_d
      */
-    v3s_copy(rMat_d + 2, 3, nVec_l);
+    v3s_copy(rMat_d + 2, 3, plane);
+    plane[3] = 0.0;
 
     /* tVec_fd is the translation from DETECTOR to SAMPLE */
     v3_v3s_sub(tVec_s, tVec_d, 1, tVec_ds);
 
     for (i=0L; i<npts; i++) {
-        double gVec_s[3], gVec_l[3], tVec_dc[3];
-        double num;
+        /* This loop generates the ray, checks collision with detector plane,
+           obtains the collision point and projects it into DETECTOR frame.
+           Collision detection is made in LAB coordinates, but centered around
+           the detector position.
+
+           Ray ORIGIN will be the input "tVec_c" in LAB frame centered on the
+           detector.
+
+           Ray VECTOR will be the diffracted direction based on the associated
+           gVec_c and the beam vector (hardcoded to z unit vector {0,0,1}) for
+           speed.
+        */
+        double gVec_s[3], gVec_l[3], ray_origin[3], ray_vector[3], point[3];
 
         const double *rMat_s = rMat_ss + 9*i;
+        const double *gVec_c = gVec_cs + 3*i;
         /*
            tVec_dc <= tVec_s + rMat_s x tVec_c
            tVec_sc is transform from SAMPLE to CRYSTAL
            tVec_dc is transform from DETECTOR to CRYSTAL
         */
         m33_v3s_multiply(rMat_s, tVec_c, 1, tVec_sc);
-        v3_v3s_add(tVec_ds, tVec_sc, 1, tVec_dc);
-
-        num = v3_v3s_dot(nVec_l, tVec_dc, 1);
+        v3_v3s_add(tVec_ds, tVec_sc, 1, ray_origin);
 
         /* Compute the matrix product of rMat_s and rMat_c */
-        m33_v3s_multiply(rMat_c, gVec_c + 3*i, 1, gVec_s); /* gVec in SAMPLE frame */
+        m33_v3s_multiply(rMat_c, gVec_c, 1, gVec_s); /* gVec in SAMPLE frame */
         m33_v3s_multiply(rMat_s, gVec_s, 1, gVec_l); /* gVec in LAB frame */
+        diffract_z(gVec_l, ray_vector);
 
-        gvec_to_xy_single(gVec_l, rMat_d, tVec_d,
-                          nVec_l, num, tVec_dc, result + 2*i);
+        /* Compute collision point of ray-plane */
+        if (0 == ray_plane_intersect(ray_origin, ray_vector, plane, point))
+        {
+            /* no intersection */
+            result[2*i] = NAN;
+            result[2*i + 1] = NAN;
+            continue;
+        }
+
+        /* 
+           project into DETECTOR coordinates. Only ```x``` and ```y``` as
+           ```z``` will always be 0.0
+        */
+        result[2*i] = v3_v3s_dot(rMat_d, point, 1);
+        result[2*i+1] = v3_v3s_dot(rMat_d + 3, point, 1);
     }
 }
 
