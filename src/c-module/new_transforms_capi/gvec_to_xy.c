@@ -26,28 +26,14 @@ RayPlaneIntersect(const double *origin, const double *vect,
 }
 
 static void
-gvec_to_xy_single(const double *gVec_c, const double *rMat_d, const double *rMat_sc,
+gvec_to_xy_single(const double *gVec_l, const double *rMat_d,
                   const double *tVec_d, const double *nVec_l,
                   const double num, const double *tVec_dc,
                   double * restrict result)
 {
-    double bDot, ztol, denom, u;
-    double gVec_l[3], dVec_l[3];
+    double bDot, denom, u;
+    double dVec_l[3];
     double P2_d[3];
-
-    ztol = epsf;
-
-    /* Compute unit reciprocal lattice vector in crystal frame w/o translation */
-
-    /*
-	 * Compute unit reciprocal lattice vector in lab frame
-	 * and dot with beam vector
-	 */
-    m33_v3s_multiply(rMat_sc, gVec_c, 1, gVec_l);
-    bDot = gVec_l[2];
-
-    if ( bDot < ztol && bDot > 1.0-ztol )
-        goto no_diffraction;
 
     /* diffraction directly on a vector. Assumes beam vector is { 0, 0, 1},
        so that only the last column of the binary_rmat is needed
@@ -57,12 +43,16 @@ gvec_to_xy_single(const double *gVec_c, const double *rMat_d, const double *rMat
     dVec_l[2] = 2*gVec_l[2]*gVec_l[2] - 1.0;
     denom = v3_v3s_dot(nVec_l, dVec_l, 1);
 
-    if ( denom > -ztol )
+    u = -num/denom;
+
+    /*
+      if u is less than 0, that means the ray does not collide with the plane.
+      The plane lies "behind" the origin point when following the vector.
+    */
+    if (u < 0.0)
         goto no_diffraction;
 
-    u = num/denom;
-
-    v3s_s_v3_muladd(dVec_l, 1, -u, tVec_dc,  P2_d);
+    v3s_s_v3_muladd(dVec_l, 1, u, tVec_dc,  P2_d);
     /* P2_d is a point in the detector plane. As we are changing to th
        detector frame, the z coordinate will always be 0, so avoid computing
        it. Note that the result is an xy point (that is, 2d), so using a
@@ -114,7 +104,10 @@ gvec_to_xy(size_t npts, const double *gVec_c,
     m33_m33_multiply(rMat_s, rMat_c, rMat_sc);
 
     for (i=0L; i<npts; i++) {
-        gvec_to_xy_single(gVec_c + 3*i, rMat_d, rMat_sc, tVec_d,
+        double gVec_l[3];
+
+        m33_v3s_multiply(rMat_sc, gVec_c + 3*i, 1, gVec_l); 
+        gvec_to_xy_single(gVec_l, rMat_d, tVec_d,
                           nVec_l, num, tVec_dc, result + 2*i);
     }
 }
@@ -131,8 +124,7 @@ gvec_to_xy_array(size_t npts, const double *gVec_c,
                  double * restrict result)
 {
     size_t i;
-    double num;
-    double nVec_l[3], tVec_sc[3], tVec_ds[3], tVec_dc[3];
+    double nVec_l[3], tVec_sc[3], tVec_ds[3];
     double rMat_sc[9];
     /*
       compute detector normal in LAB (nVec_l)
@@ -144,6 +136,9 @@ gvec_to_xy_array(size_t npts, const double *gVec_c,
     v3_v3s_sub(tVec_s, tVec_d, 1, tVec_ds);
 
     for (i=0L; i<npts; i++) {
+        double gVec_s[3], gVec_l[3], tVec_dc[3];
+        double num;
+
         const double *rMat_s = rMat_ss + 9*i;
         /*
            tVec_dc <= tVec_s + rMat_s x tVec_c
@@ -156,9 +151,10 @@ gvec_to_xy_array(size_t npts, const double *gVec_c,
         num = v3_v3s_dot(nVec_l, tVec_dc, 1);
 
         /* Compute the matrix product of rMat_s and rMat_c */
-        m33_m33_multiply(rMat_s, rMat_c, rMat_sc);
+        m33_v3s_multiply(rMat_c, gVec_c + 3*i, 1, gVec_s); /* gVec in SAMPLE frame */
+        m33_v3s_multiply(rMat_s, gVec_s, 1, gVec_l); /* gVec in LAB frame */
 
-        gvec_to_xy_single(gVec_c + 3*i, rMat_d, rMat_sc, tVec_d,
+        gvec_to_xy_single(gVec_l, rMat_d, tVec_d,
                           nVec_l, num, tVec_dc, result + 2*i);
     }
 }
