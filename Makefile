@@ -11,3 +11,6 @@ clean :
 
 test: install
 	python -m pytest -v
+
+test-dev: install
+	python -m pytest -v test_xrd_transforms/test_gvec_to_xy.py
