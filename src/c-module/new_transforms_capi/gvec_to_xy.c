@@ -17,6 +17,25 @@ diffract_z(const double *gvec, double * restrict diffracted)
     diffracted[2] = 2*gvec[2]*gvec[2] - 1.0;
 }
 
+static inline
+void
+diffract(const double *beam, double *vec, double * restrict diffracted)
+{
+    /* take advantage of the simmetry so no need to build the full matrix */
+    double bm00 = beam[0]*beam[0]*2.0 - 1.0;
+    double bm11 = beam[1]*beam[1]*2.0 - 1.0;
+    double bm22 = beam[2]*beam[2]*2.0 - 1.0;
+    double bm01 = beam[0]*beam[1]*2.0;
+    double bm02 = beam[0]*beam[2]*2.0;
+    double bm12 = beam[1]*beam[2]*2.0;
+    double v0 = vec[0];
+    double v1 = vec[1];
+    double v2 = vec[2];
+
+    diffracted[0] = bm00*v0 + bm01*v1 + bm02*v2;
+    diffracted[1] = bm01*v0 + bm11*v1 + bm12*v2;
+    diffracted[2] = bm02*v0 + bm12*v1 + bm22*v2;
+}
 
 
 /*
@@ -45,7 +64,7 @@ ray_plane_intersect(const double *origin, const double *vect,
     t = (plane[3] - v3_v3s_dot(plane, origin, 1)) / v3_v3s_dot(plane, vect, 1);
     if (t < 0.0)
         return 0;
-    v3s_s_v3_muladd(vect, 1, t, origin, collision_point); 
+    v3s_s_v3_muladd(vect, 1, t, origin, collision_point);
     return 1;
 }
 
@@ -90,6 +109,7 @@ gvec_to_xy_single(const double *ray_vector, const double *rMat_d,
 }
 #endif
 
+#if 0
 XRD_CFUNCTION void
 gvec_to_xy(size_t npts, const double *gVec_c,
            const double *rMat_d, const double *rMat_s, const double *rMat_c,
@@ -138,7 +158,7 @@ gvec_to_xy(size_t npts, const double *gVec_c,
             result[2*i + 1] = NAN;
             continue;
         }
-        /* 
+        /*
            project into DETECTOR coordinates. Only ```x``` and ```y``` as
            ```z``` will always be 0.0
         */
@@ -146,20 +166,27 @@ gvec_to_xy(size_t npts, const double *gVec_c,
         result[2*i+1] = v3_v3s_dot(rMat_d + 3, point, 1);
     }
 }
+#endif
 
 /*
  * The only difference between this and the non-Array version
  * is that rMat_s is an array of matrices of length npts instead
  * of a single matrix.
  */
+
+
 XRD_CFUNCTION void
-gvec_to_xy_array(size_t npts, const double *gVec_cs,
-                 const double *rMat_d, const double *rMat_ss, const double *rMat_c,
-                 const double *tVec_d, const double *tVec_s, const double *tVec_c,
-                 double * restrict result)
+gvec_to_xy(size_t npts, const double *gVec_cs,
+           const double *rMat_d, const double *rMat_ss, const double *rMat_c,
+           const double *tVec_d, const double *tVec_s, const double *tVec_c,
+           const double *beamVec_Ptr,
+           double * restrict result, unsigned int flags)
 {
     size_t i;
     double plane[4], tVec_sc[3], tVec_ds[3];
+    double ray_origin[3];
+    double rMat_sc[9];
+    int use_single_rMat_s = flags & GV2XY_SINGLE_RMAT_S;
 
     /*
       compute detector normal in LAB (nVec_l)
@@ -170,6 +197,20 @@ gvec_to_xy_array(size_t npts, const double *gVec_cs,
 
     /* tVec_fd is the translation from DETECTOR to SAMPLE */
     v3_v3s_sub(tVec_s, tVec_d, 1, tVec_ds);
+
+    if (use_single_rMat_s)
+    {
+        const double *rMat_s = rMat_ss; /* only one */
+        /* All gvecs use the same rMat_s */
+        /* ray origin can be already computed */
+        m33_v3s_multiply(rMat_s, tVec_c, 1, tVec_sc);
+        v3_v3s_add(tVec_ds, tVec_sc, 1, ray_origin);
+
+        /* rMat_sc can be precomputed, so transforming the transformer gvec in
+           the loop is faster.
+        */
+        m33_m33_multiply(rMat_s, rMat_c, rMat_sc);
+    }
 
     for (i=0L; i<npts; i++) {
         /* This loop generates the ray, checks collision with detector plane,
@@ -184,22 +225,41 @@ gvec_to_xy_array(size_t npts, const double *gVec_cs,
            gVec_c and the beam vector (hardcoded to z unit vector {0,0,1}) for
            speed.
         */
-        double gVec_s[3], gVec_l[3], ray_origin[3], ray_vector[3], point[3];
+        double gVec_l[3], ray_vector[3], point[3];
 
-        const double *rMat_s = rMat_ss + 9*i;
         const double *gVec_c = gVec_cs + 3*i;
-        /*
-           tVec_dc <= tVec_s + rMat_s x tVec_c
-           tVec_sc is transform from SAMPLE to CRYSTAL
-           tVec_dc is transform from DETECTOR to CRYSTAL
-        */
-        m33_v3s_multiply(rMat_s, tVec_c, 1, tVec_sc);
-        v3_v3s_add(tVec_ds, tVec_sc, 1, ray_origin);
 
-        /* Compute the matrix product of rMat_s and rMat_c */
-        m33_v3s_multiply(rMat_c, gVec_c, 1, gVec_s); /* gVec in SAMPLE frame */
-        m33_v3s_multiply(rMat_s, gVec_s, 1, gVec_l); /* gVec in LAB frame */
-        diffract_z(gVec_l, ray_vector);
+        if (use_single_rMat_s)
+        {
+            m33_v3s_multiply(rMat_sc, gVec_c, 1, gVec_l);
+        }
+        else
+        {
+            double gVec_s[3];
+            const double *rMat_s = rMat_ss + 9*i;
+            /*
+              tVec_dc <= tVec_s + rMat_s x tVec_c
+              tVec_sc is transform from SAMPLE to CRYSTAL
+              tVec_dc is transform from DETECTOR to CRYSTAL
+            */
+
+            m33_v3s_multiply(rMat_s, tVec_c, 1, tVec_sc);
+            v3_v3s_add(tVec_ds, tVec_sc, 1, ray_origin);
+
+            /* Compute gVec in lab frame */
+            m33_v3s_multiply(rMat_c, gVec_c, 1, gVec_s); /* gVec in SAMPLE frame */
+            m33_v3s_multiply(rMat_s, gVec_s, 1, gVec_l); /* gVec in LAB frame */
+        }
+
+        if (!beamVec_Ptr) /* this will be properly predicted in most cases */
+        {
+            /* if no beamVec is provided, assume the {0,0,1} and use a fast-path*/
+            diffract_z(gVec_l, ray_vector);
+        }
+        else
+        {
+            diffract(beamVec_Ptr, gVec_l, ray_vector);
+        }
 
         /* Compute collision point of ray-plane */
         if (0 == ray_plane_intersect(ray_origin, ray_vector, plane, point))
@@ -210,7 +270,7 @@ gvec_to_xy_array(size_t npts, const double *gVec_cs,
             continue;
         }
 
-        /* 
+        /*
            project into DETECTOR coordinates. Only ```x``` and ```y``` as
            ```z``` will always be 0.0
         */
@@ -272,6 +332,7 @@ python_gvecToDetectorXY(PyObject * self, PyObject * args)
         *rMat_d_Ptr, *rMat_s_Ptr, *rMat_c_Ptr,
         *tVec_d_Ptr, *tVec_s_Ptr, *tVec_c_Ptr,
         *beamVec_Ptr;
+    double beam[3], beam_sqrnorm;
     double *result_Ptr;
 
     /* Parse arguments */
@@ -330,12 +391,36 @@ python_gvecToDetectorXY(PyObject * self, PyObject * args)
 
     result_Ptr  = (double*)PyArray_DATA(result);
 
+    /* normalize beam vector and detect if it is z */
+    beam_sqrnorm = v3_v3s_dot(beamVec_Ptr, beamVec_Ptr, 1);
+    if (beam_sqrnorm > (epsf*epsf))
+    {
+        double beam_z;
+        double beam_rnorm = -1.0/sqrt(beam_sqrnorm);
+        beam_z = beamVec_Ptr[2] * beam_rnorm;
+        if (fabs(beam_z - 1.0) < epsf)
+        {
+            /* consider that beam is {0, 0, 1}, activate fast path by using a
+               NULL beam */
+            beamVec_Ptr = NULL;
+        }
+        else
+        {
+            /* normalize the beam vector in full... */
+            beam[0] = beamVec_Ptr[0] * beam_rnorm;
+            beam[1] = beamVec_Ptr[1] * beam_rnorm;
+            beam[2] = beam_z;
+            beamVec_Ptr = beam;
+        }
+    }
+
     /* Call the computational routine */
     gvec_to_xy(npts, gVec_c_Ptr,
                rMat_d_Ptr, rMat_s_Ptr, rMat_c_Ptr,
                tVec_d_Ptr, tVec_s_Ptr, tVec_c_Ptr,
-               /*               beamVec_Ptr,*/
-               result_Ptr);
+               beamVec_Ptr,
+               result_Ptr,
+               GV2XY_SINGLE_RMAT_S);
 
     /* Build and return the nested data structure */
     return((PyObject*)result);
@@ -377,6 +462,7 @@ python_gvecToDetectorXYArray(PyObject * self, PyObject * args)
         *rMat_d_Ptr, *rMat_s_Ptr, *rMat_c_Ptr,
         *tVec_d_Ptr, *tVec_s_Ptr, *tVec_c_Ptr,
         *beamVec_Ptr;
+    double beam[3], beam_sqrnorm;
     double *result_Ptr;
 
     /* Parse arguments */
@@ -440,12 +526,36 @@ python_gvecToDetectorXYArray(PyObject * self, PyObject * args)
 
     result_Ptr  = (double*)PyArray_DATA(result);
 
+    /* normalize beam vector and detect if it is z */
+    beam_sqrnorm = v3_v3s_dot(beamVec_Ptr, beamVec_Ptr, 1);
+    if (beam_sqrnorm > (epsf*epsf))
+    {
+        double beam_z;
+        double beam_rnorm = -1.0/sqrt(beam_sqrnorm);
+        beam_z = beamVec_Ptr[2] * beam_rnorm;
+        if (fabs(beam_z - 1.0) < epsf)
+        {
+            /* consider that beam is {0, 0, 1}, activate fast path by using a
+               NULL beam */
+            beamVec_Ptr = NULL;
+        }
+        else
+        {
+            /* normalize the beam vector in full... */
+            beam[0] = beamVec_Ptr[0] * beam_rnorm;
+            beam[1] = beamVec_Ptr[1] * beam_rnorm;
+            beam[2] = beam_z;
+            beamVec_Ptr = beam;
+        }
+    }
+
     /* Call the computational routine */
-    gvec_to_xy_array(npts, gVec_c_Ptr,
-                     rMat_d_Ptr, rMat_s_Ptr, rMat_c_Ptr,
-                     tVec_d_Ptr, tVec_s_Ptr, tVec_c_Ptr,
-                     /*                     beamVec_Ptr,*/
-                     result_Ptr);
+    gvec_to_xy(npts, gVec_c_Ptr,
+               rMat_d_Ptr, rMat_s_Ptr, rMat_c_Ptr,
+               tVec_d_Ptr, tVec_s_Ptr, tVec_c_Ptr,
+               beamVec_Ptr,
+               result_Ptr,
+               0);
 
     /* Build and return the nested data structure */
     return((PyObject*)result);

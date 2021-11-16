@@ -13,19 +13,23 @@ XRD_CFUNCTION void
 angles_to_dvec(size_t nvecs, double *angs, double *bHat_l, double *eHat_l,
                double chi, double *rMat_c, double * gVec_c);
 
+
+#define GV2XY_SINGLE_RMAT_S 1
 XRD_CFUNCTION void
 gvec_to_xy(size_t npts, const double *gVec_c_Ptr, const double *rMat_d_Ptr,
            const double *rMat_s_Ptr, const double *rMat_c_Ptr,
            const double *tVec_d_Ptr, const double *tVec_s_Ptr,
-           const double *tVec_c_Ptr, /*const double *beamVec_Ptr,*/
-           double * restrict result_Ptr);
+           const double *tVec_c_Ptr, const double *beamVec_Ptr,
+           double * restrict result_Ptr, unsigned int flags);
 
+/*
 XRD_CFUNCTION void
 gvec_to_xy_array(size_t npts, const double *gVec_c_Ptr, const double *rMat_d_Ptr,
                  const double *rMat_s_Ptr, const double *rMat_c_Ptr,
                  const double *tVec_d_Ptr, const double *tVec_s_Ptr,
-                 const double *tVec_c_Ptr, /*const double *beamVec_Ptr,*/
+                 const double *tVec_c_Ptr, const double *beamVec_Ptr,
                  double * restrict result_Ptr);
+*/
 
 XRD_CFUNCTION void
 xy_to_gvec(size_t npts, double *xy, double *rMat_d, double *rMat_s,
