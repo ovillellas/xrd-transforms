@@ -22,15 +22,6 @@ gvec_to_xy(size_t npts, const double *gVec_c_Ptr, const double *rMat_d_Ptr,
            const double *tVec_c_Ptr, const double *beamVec_Ptr,
            double * restrict result_Ptr, unsigned int flags);
 
-/*
-XRD_CFUNCTION void
-gvec_to_xy_array(size_t npts, const double *gVec_c_Ptr, const double *rMat_d_Ptr,
-                 const double *rMat_s_Ptr, const double *rMat_c_Ptr,
-                 const double *tVec_d_Ptr, const double *tVec_s_Ptr,
-                 const double *tVec_c_Ptr, const double *beamVec_Ptr,
-                 double * restrict result_Ptr);
-*/
-
 XRD_CFUNCTION void
 xy_to_gvec(size_t npts, double *xy, double *rMat_d, double *rMat_s,
            double *tVec_d, double *tVec_s, double *tVec_c,
