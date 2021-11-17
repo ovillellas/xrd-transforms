@@ -9,7 +9,7 @@ import pytest
 import numpy as np
 from numpy.testing import assert_allclose
 
-from common import function_implementations
+from common import function_implementations, convert_axis_angle_to_rmat
 
 
 all_impls = pytest.mark.parametrize('gvec_to_xy_impl, module_name',
@@ -120,4 +120,28 @@ def test_vector(experiment, gvec_to_xy_impl, module_name):
     result = gvec_to_xy_impl(experiment.gvec_c,
                              experiment.rmat_d, experiment.rmat_s, experiment.rmat_c,
                              experiment.tvec_d, experiment.tvec_s, experiment.tvec_c)
+    assert_allclose(result, experiment.result, rtol=experiment.rtol)
+
+@all_impls
+def test_rotated(experiment, gvec_to_xy_impl, module_name):
+    '''Rotating the LAB frame and all associated experiment values should not
+    affect the results. As some of the rotations are relative to other
+    rotations, not everything should need to be rotated.
+
+    This serves as a test for non-standard beam vector as well'''
+    # note: rotation is  arbitrary...
+    experiment_rot = convert_axis_angle_to_rmat(np.r_[0.5, 0.2, 0.6] , 1.0)
+
+    gvec_c = experiment.gvec_c # gvec_c are relative to the crystal frame
+    rmat_d = experiment_rot @ experiment.rmat_d
+    rmat_s = experiment_rot @ experiment.rmat_s
+    rmat_c = experiment.rmat_c # rMat_c is in sample frame
+    tvec_d = experiment_rot @ experiment.tvec_d
+    tvec_s = experiment_rot @ experiment.tvec_s
+    tvec_c = experiment.tvec_c # tvec_c is relative to sample frame
+    beam = experiment_rot @ np.r_[0.0, 0.0, -1.0]
+
+    result = gvec_to_xy_impl(gvec_c, rmat_d, rmat_s, rmat_c,
+                             tvec_d, tvec_s, tvec_c, beam_vec=beam)
+
     assert_allclose(result, experiment.result, rtol=experiment.rtol)
