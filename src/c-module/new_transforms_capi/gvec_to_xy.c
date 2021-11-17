@@ -22,19 +22,19 @@ void
 diffract(const double *beam, double *vec, double * restrict diffracted)
 {
     /* take advantage of the simmetry so no need to build the full matrix */
-    double bm00 = beam[0]*beam[0]*2.0 - 1.0;
-    double bm11 = beam[1]*beam[1]*2.0 - 1.0;
-    double bm22 = beam[2]*beam[2]*2.0 - 1.0;
-    double bm01 = beam[0]*beam[1]*2.0;
-    double bm02 = beam[0]*beam[2]*2.0;
-    double bm12 = beam[1]*beam[2]*2.0;
-    double v0 = vec[0];
-    double v1 = vec[1];
-    double v2 = vec[2];
+    double bm00 = vec[0]*vec[0]*2.0 - 1.0;
+    double bm11 = vec[1]*vec[1]*2.0 - 1.0;
+    double bm22 = vec[2]*vec[2]*2.0 - 1.0;
+    double bm01 = vec[0]*vec[1]*2.0;
+    double bm02 = vec[0]*vec[2]*2.0;
+    double bm12 = vec[1]*vec[2]*2.0;
+    double b0 = beam[0];
+    double b1 = beam[1];
+    double b2 = beam[2];
 
-    diffracted[0] = bm00*v0 + bm01*v1 + bm02*v2;
-    diffracted[1] = bm01*v0 + bm11*v1 + bm12*v2;
-    diffracted[2] = bm02*v0 + bm12*v1 + bm22*v2;
+    diffracted[0] = bm00*b0 + bm01*b1 + bm02*b2;
+    diffracted[1] = bm01*b0 + bm11*b1 + bm12*b2;
+    diffracted[2] = bm02*b0 + bm12*b1 + bm22*b2;
 }
 
 
@@ -155,7 +155,10 @@ gvec_to_xy(size_t npts, const double *gVec_cs,
             diffract(beamVec_Ptr, gVec_l, ray_vector);
         }
 
-        /* Compute collision point of ray-plane */
+        /* Compute collision point of ray-plane
+           As we are doing intersection in the detector frame, the intersection
+           can be simplified
+         */
         if (0 == ray_plane_intersect(ray_origin, ray_vector, plane, point))
         {
             /* no intersection */
@@ -172,6 +175,113 @@ gvec_to_xy(size_t npts, const double *gVec_cs,
         result[2*i+1] = v3_v3s_dot(rMat_d + 3, point, 1);
     }
 }
+
+
+/* experimental:
+ * Perform the ray intersection in the detector frame
+ */
+XRD_CFUNCTION void
+gvec_to_xy_in_detector(size_t npts, const double *gVec_cs,
+                       const double *rMat_d, const double *rMat_ss, const double *rMat_c,
+                       const double *tVec_d, const double *tVec_s, const double *tVec_c,
+                       const double *beamVec_Ptr,
+                       double * restrict result, unsigned int flags)
+{
+    size_t i;
+    double tVec_c_det[3], tVec_ds_lab[3], tVec_ds_det[3];
+    double ray_origin[3];
+    double rMat_dc[9]; /* DETECTOR to CRYSTAL CoB */
+    double beam_det[3]; /* beam vector in detector frame */
+    int use_single_rMat_s = flags & GV2XY_SINGLE_RMAT_S;
+
+    /*
+      In this case, the plane will be just (0, 0, 1, 0), that is, z = 0;
+     */
+    if (beamVec_Ptr)
+    {
+        m33_v3s_multiply(rMat_d, beamVec_Ptr, 1, beam_det);
+    }
+    else
+    {
+        v3s_copy(rMat_d+2, 3, beam_det);
+    }
+
+    /* tVec_fd is the translation from DETECTOR to SAMPLE */
+    v3_v3s_sub(tVec_s, tVec_d, 1, tVec_ds_lab); /* in lab basis */
+    m33_v3s_multiply(rMat_d, tVec_ds_lab, 1, tVec_ds_det); /* in detector basis */
+
+    if (use_single_rMat_s)
+    {
+        double rMat_ds[9]; /* DETECTOR to SAMPLE CoB */
+        const double *rMat_s = rMat_ss; /* only one */
+
+        m33_m33_multiply(rMat_d, rMat_s, rMat_ds);
+
+        /* Ray origin in detector Frame */
+        m33_v3s_multiply(rMat_ds, tVec_c, 1, tVec_c_det);
+        v3_v3s_add(tVec_ds_det, tVec_c_det, 1, ray_origin);
+
+        /* Precompute DETECTOR to CRYSTAL CoB */
+        m33_m33_multiply(rMat_ds, rMat_c, rMat_dc);
+    }
+
+    for (i=0L; i<npts; i++) {
+        /* This loop generates the ray, checks collision with detector plane,
+           obtains the collision point and projects it into DETECTOR frame.
+           Collision detection is made in LAB coordinates, but centered around
+           the detector position.
+
+           Ray ORIGIN will be the input "tVec_c" in LAB frame centered on the
+           detector.
+
+           Ray VECTOR will be the diffracted direction based on the associated
+           gVec_c and the beam vector (hardcoded to z unit vector {0,0,1}) for
+           speed.
+        */
+        double gVec_det[3], ray_vector[3];
+        /* factor solving 'ray_origin + factor*ray_vector' lying in the plane */
+        double factor;
+        const double *gVec_c = gVec_cs + 3*i;
+
+        if (use_single_rMat_s)
+        {
+            /* compute G vector in detector frame */
+            m33_v3s_multiply(rMat_dc, gVec_c, 1, gVec_det);
+        }
+        else
+        {
+            double tVec_c_lab[3], gVec_sam[3], gVec_lab[3];
+            const double *rMat_s = rMat_ss + 9*i;
+
+            /* compute ray origin in detector frame */
+            m33_v3s_multiply(rMat_s, tVec_c, 1, tVec_c_lab);
+            m33_v3s_multiply(rMat_d, tVec_c_lab, 1, tVec_c_det);
+            v3_v3s_add(tVec_ds_det, tVec_c_det, 1, ray_origin);
+
+            /* Compute gVec in detector frame */
+            m33_v3s_multiply(rMat_c, gVec_c, 1, gVec_sam);
+            m33_v3s_multiply(rMat_s, gVec_sam, 1, gVec_lab);
+            m33_v3s_multiply(rMat_d, gVec_lab, 1, gVec_det);
+        }
+
+        diffract(beam_det, gVec_det, ray_vector);
+
+        /* Compute collision point of ray-plane */
+        factor = - ray_origin[2] / ray_vector[2];
+        if (factor < 0.0)
+        {
+            /* no intersection */
+            result[2*i] = NAN;
+            result[2*i + 1] = NAN;
+            continue;
+        }
+
+        /* Generate the result: trivial as ray is already in detector frame */
+        result[2*i] = ray_origin[0] + factor*ray_vector[0];
+        result[2*i+1] = ray_origin[1] + factor*ray_vector[1];
+    }
+}
+
 
 #if defined(XRD_INCLUDE_PYTHON_WRAPPERS) && XRD_INCLUDE_PYTHON_WRAPPERS
 
