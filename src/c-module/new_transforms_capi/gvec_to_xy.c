@@ -89,7 +89,7 @@ gvec_to_xy(size_t npts, const double *gVec_cs,
     v3s_copy(rMat_d + 2, 3, plane);
     plane[3] = 0.0;
 
-    /* tVec_fd is the translation from DETECTOR to SAMPLE */
+    /* tVec_ds is the translation from DETECTOR to SAMPLE in LAB frame*/
     v3_v3s_sub(tVec_s, tVec_d, 1, tVec_ds);
 
     if (use_single_rMat_s)
@@ -171,8 +171,8 @@ gvec_to_xy(size_t npts, const double *gVec_cs,
            project into DETECTOR coordinates. Only ```x``` and ```y``` as
            ```z``` will always be 0.0
         */
-        result[2*i] = v3_v3s_dot(rMat_d, point, 1);
-        result[2*i+1] = v3_v3s_dot(rMat_d + 3, point, 1);
+        result[2*i] = v3_v3s_dot(point, rMat_d, 3);
+        result[2*i+1] = v3_v3s_dot(point, rMat_d+1, 3);
     }
 }
 
