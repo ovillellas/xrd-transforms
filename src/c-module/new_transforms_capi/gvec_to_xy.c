@@ -199,7 +199,7 @@ gvec_to_xy_in_detector(size_t npts, const double *gVec_cs,
      */
     if (beamVec_Ptr)
     {
-        m33_v3s_multiply(rMat_d, beamVec_Ptr, 1, beam_det);
+        m33t_v3s_multiply(rMat_d, beamVec_Ptr, 1, beam_det);
     }
     else
     {
@@ -208,14 +208,14 @@ gvec_to_xy_in_detector(size_t npts, const double *gVec_cs,
 
     /* tVec_fd is the translation from DETECTOR to SAMPLE */
     v3_v3s_sub(tVec_s, tVec_d, 1, tVec_ds_lab); /* in lab basis */
-    m33_v3s_multiply(rMat_d, tVec_ds_lab, 1, tVec_ds_det); /* in detector basis */
+    m33t_v3s_multiply(rMat_d, tVec_ds_lab, 1, tVec_ds_det); /* in detector basis */
 
     if (use_single_rMat_s)
     {
         double rMat_ds[9]; /* DETECTOR to SAMPLE CoB */
         const double *rMat_s = rMat_ss; /* only one */
 
-        m33_m33_multiply(rMat_d, rMat_s, rMat_ds);
+        m33t_m33_multiply(rMat_d, rMat_s, rMat_ds);
 
         /* Ray origin in detector Frame */
         m33_v3s_multiply(rMat_ds, tVec_c, 1, tVec_c_det);
@@ -255,13 +255,13 @@ gvec_to_xy_in_detector(size_t npts, const double *gVec_cs,
 
             /* compute ray origin in detector frame */
             m33_v3s_multiply(rMat_s, tVec_c, 1, tVec_c_lab);
-            m33_v3s_multiply(rMat_d, tVec_c_lab, 1, tVec_c_det);
+            m33t_v3s_multiply(rMat_d, tVec_c_lab, 1, tVec_c_det);
             v3_v3s_add(tVec_ds_det, tVec_c_det, 1, ray_origin);
 
             /* Compute gVec in detector frame */
             m33_v3s_multiply(rMat_c, gVec_c, 1, gVec_sam);
             m33_v3s_multiply(rMat_s, gVec_sam, 1, gVec_lab);
-            m33_v3s_multiply(rMat_d, gVec_lab, 1, gVec_det);
+            m33t_v3s_multiply(rMat_d, gVec_lab, 1, gVec_det);
         }
 
         diffract(beam_det, gVec_det, ray_vector);
