@@ -123,7 +123,27 @@ def test_vector(experiment, gvec_to_xy_impl, module_name):
     assert_allclose(result, experiment.result, rtol=experiment.rtol)
 
 @all_impls
-def test_rotated(experiment, gvec_to_xy_impl, module_name):
+def test_rotated_scalar(experiment, gvec_to_xy_impl, module_name):
+    '''A simple call using all scalar arguments'''
+    experiment_rot = convert_axis_angle_to_rmat(np.r_[0.5, 0.2, 0.6] , 1.0)
+
+    gvec_c = experiment.gvec_c # gvec_c are relative to the crystal frame
+    rmat_d = experiment_rot @ experiment.rmat_d
+    rmat_s = experiment_rot @ experiment.rmat_s
+    rmat_c = experiment.rmat_c # rMat_c is in sample frame
+    tvec_d = experiment_rot @ experiment.tvec_d
+    tvec_s = experiment_rot @ experiment.tvec_s
+    tvec_c = experiment.tvec_c # tvec_c is relative to sample frame
+    beam = experiment_rot @ np.r_[0.0, 0.0, -1.0]
+    
+    result = gvec_to_xy_impl(gvec_c[0], rmat_d, rmat_s[0], rmat_c,
+                             tvec_d, tvec_s, tvec_c, beam_vec=beam)
+
+    assert_allclose(result, experiment.result[0], rtol=experiment.rtol)
+
+    
+@all_impls
+def test_rotated_vector(experiment, gvec_to_xy_impl, module_name):
     '''Rotating the LAB frame and all associated experiment values should not
     affect the results. As some of the rotations are relative to other
     rotations, not everything should need to be rotated.
