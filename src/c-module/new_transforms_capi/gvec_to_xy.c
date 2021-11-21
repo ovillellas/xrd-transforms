@@ -56,7 +56,7 @@ diffract(const double *beam, const double *vec, double * restrict diffracted)
   diffracted vectors in <diffracted>. If <beam> is NULL, use { 0, 0, 1 } as
   beam.
  */
-static inline void
+static void
 diffract_array(const double *beam, const double *vectors,
                double * restrict diffracted, size_t count)
 {
@@ -109,7 +109,7 @@ diffract_array(const double *beam, const double *vectors,
   rotate_vector_array_v: vectors are vectorized, rot_mat remains constant.
   rotate_vector_array_rv: vectors and rot_mat are vectorized.
 */
-static inline void
+static void
 rotate_vector_array_v(const double *rot_mat, const double *vectors,
                     double * restrict rotated, size_t count)
 {
@@ -120,7 +120,7 @@ rotate_vector_array_v(const double *rot_mat, const double *vectors,
     }
 }
 
-static inline void
+static void
 rotate_vector_array_rv(const double *rot_mat, const double *vectors,
                     double * restrict rotated, size_t count)
 {
@@ -138,7 +138,7 @@ rotate_vector_array_rv(const double *rot_mat, const double *vectors,
   This particular routine does <count> transforms, where <rotation> changes for
   each iteration. <translation> and <vector> remain constant.
  */
-static inline void
+static void
 transform_vector_array_r(const double *translation, const double *rotation,
                          const double *vectors, double * restrict transformed,
                          size_t count)
@@ -304,7 +304,7 @@ struct planar_detector_struct {
     double y[4];
 };
 
-static inline void
+static void
 rays_to_planar_detector (const void *detector_data,
                          const double *ray_origin, size_t ray_origin_count,
                          const double *ray_vector, size_t ray_vector_count,
@@ -406,26 +406,22 @@ rays_to_planar_detector (const void *detector_data,
     }
 }
 
+typedef void (*rays_to_detector_func) (const void *detector_data,
+                                       const double *ray_origin, size_t ray_origin_count,
+                                       const double *ray_vector, size_t ray_vector_count,
+                                       double * restrict projected_xy, size_t projected_xy_count);
 /* experimental:
  */
 XRD_CFUNCTION void
-gvec_to_xy_vect(size_t npts, const double *gVec_cs,
-                const double *rMat_d, const double *rMat_ss, const double *rMat_c,
-                const double *tVec_d, const double *tVec_s, const double *tVec_c,
-                const double *beamVec,
-                double * restrict result, unsigned int flags)
+gvec_to_xy_detector(size_t npts, const double *gVec_cs,
+                    const double *rMat_ss, const double *rMat_c,
+                    const double *tVec_s, const double *tVec_c,
+                    const double *beamVec,
+                    double * restrict result, unsigned int flags,
+                    rays_to_detector_func to_detector, const void *to_detector_data)
 {
     size_t i;
     int use_single_rMat_s = flags & GV2XY_SINGLE_RMAT_S;
-    struct planar_detector_struct planar_detector_data;
-
-    /* build the planar detector struct */
-    v3s_copy(rMat_d + 2, 3, planar_detector_data.plane);
-    planar_detector_data.plane[3] = v3_v3s_dot(tVec_d, rMat_d + 2, 3);
-    v3s_copy(rMat_d + 0, 3, planar_detector_data.x);
-    planar_detector_data.x[3] = -v3_v3s_dot(tVec_d, rMat_d + 0, 3);
-    v3s_copy(rMat_d + 1, 3, planar_detector_data.y);
-    planar_detector_data.y[3] = -v3_v3s_dot(tVec_d, rMat_d + 1, 3);
 
     /*
        This loop generates the ray, checks collision with detector plane,
@@ -466,10 +462,10 @@ gvec_to_xy_vect(size_t npts, const double *gVec_cs,
         {
             rotate_vector_array_v(rMat_sc, gVec_cs + 3*i, gVec_l, INNER_SIZE);
             diffract_array(beamVec, gVec_l, ray_vector, INNER_SIZE);
-            rays_to_planar_detector(&planar_detector_data,
-                                    ray_origin, 1,
-                                    ray_vector, INNER_SIZE,
-                                    result + 2*i, INNER_SIZE);
+            to_detector(to_detector_data,
+                        ray_origin, 1,
+                        ray_vector, INNER_SIZE,
+                        result + 2*i, INNER_SIZE);
         }
 
         if (i < npts)
@@ -477,10 +473,10 @@ gvec_to_xy_vect(size_t npts, const double *gVec_cs,
             size_t missing = npts-i;
             rotate_vector_array_v(rMat_sc, gVec_cs + 3*i, gVec_l, missing);
             diffract_array(beamVec, gVec_l, ray_vector, missing);
-            rays_to_planar_detector(&planar_detector_data,
-                                    ray_origin, 1,
-                                    ray_vector, missing,
-                                    result + 2*i, missing);
+            to_detector(to_detector_data,
+                        ray_origin, 1,
+                        ray_vector, missing,
+                        result + 2*i, missing);
         }
         #undef INNER_SIZE
     }
@@ -501,10 +497,10 @@ gvec_to_xy_vect(size_t npts, const double *gVec_cs,
             rotate_vector_array_v(rMat_c, gVec_c, gVec_sam, INNER_SIZE);
             rotate_vector_array_rv(rMat_s, gVec_sam, gVec_lab, INNER_SIZE);
             diffract_array(beamVec, gVec_lab, ray_vector, INNER_SIZE);
-            rays_to_planar_detector(&planar_detector_data,
-                                    ray_origin, INNER_SIZE,
-                                    ray_vector, INNER_SIZE,
-                                    result + 2*i, INNER_SIZE);
+            to_detector(to_detector_data,
+                        ray_origin, INNER_SIZE,
+                        ray_vector, INNER_SIZE,
+                        result + 2*i, INNER_SIZE);
         }
 
         if (i < npts)
@@ -519,15 +515,35 @@ gvec_to_xy_vect(size_t npts, const double *gVec_cs,
             rotate_vector_array_v(rMat_c, gVec_c, gVec_sam, missing);
             rotate_vector_array_rv(rMat_s, gVec_sam, gVec_lab, missing);
             diffract_array(beamVec, gVec_lab, ray_vector, missing);
-            rays_to_planar_detector(&planar_detector_data,
-                                    ray_origin, missing,
-                                    ray_vector, missing,
-                                    result + 2*i, missing);
+            to_detector(to_detector_data,
+                        ray_origin, missing,
+                        ray_vector, missing,
+                        result + 2*i, missing);
         }
         #undef INNER_SIZE
     }
 }
 
+XRD_CFUNCTION void
+gvec_to_xy_vect(size_t npts, const double *gVec_cs,
+                const double *rMat_d, const double *rMat_ss, const double *rMat_c,
+                const double *tVec_d, const double *tVec_s, const double *tVec_c,
+                const double *beam,
+                double * restrict result, unsigned int flags)
+{
+    struct planar_detector_struct planar_detector_data;
+
+    /* build the planar detector struct */
+    v3s_copy(rMat_d + 2, 3, planar_detector_data.plane);
+    planar_detector_data.plane[3] = v3_v3s_dot(tVec_d, rMat_d + 2, 3);
+    v3s_copy(rMat_d + 0, 3, planar_detector_data.x);
+    planar_detector_data.x[3] = -v3_v3s_dot(tVec_d, rMat_d + 0, 3);
+    v3s_copy(rMat_d + 1, 3, planar_detector_data.y);
+    planar_detector_data.y[3] = -v3_v3s_dot(tVec_d, rMat_d + 1, 3);
+
+    gvec_to_xy_detector(npts, gVec_cs, rMat_ss, rMat_c, tVec_s, tVec_c, beam,
+                        result, flags, rays_to_planar_detector, &planar_detector_data);
+}
 
 #if defined(XRD_INCLUDE_PYTHON_WRAPPERS) && XRD_INCLUDE_PYTHON_WRAPPERS
 
