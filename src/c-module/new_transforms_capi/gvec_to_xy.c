@@ -7,6 +7,11 @@
 #define GV2XY_GROUP_SIZE 128
 #define GVEC_TO_XY_FUNC gvec_to_xy_vect
 
+struct planar_detector_struct {
+    double plane[4];
+    double x[4];
+    double y[4];
+};
 
 /*
   computes the diffraction vector for the G vector ```gvec```
@@ -158,6 +163,134 @@ transform_vector_array_r(const double *translation, const double *rotation,
     }
 }
 
+static void
+vdot_array_v(const double *vector, const double *vector_array,
+             double * restrict results, size_t count)
+{
+    size_t i;
+    double v0 = vector[0], v1 = vector[1], v2 = vector[2];
+
+    for (i = 0; i < count; i++)
+    {
+        double va0 = vector_array[3*i+0], va1 = vector_array[3*i+1], va2 = vector_array[3*i+2];
+        results[i] = v0*va0 + v1*va1 + v2*va2;
+    }
+}
+
+/*
+  compute result = base - factor*vectors, for <count> iterations.
+
+  in the svv version:
+  <base>  remains constant.
+  <factor> one entry per iteration of double
+  <vector> one entry per iteration of double
+*/
+static void
+submul_array_svv(const double *base, const double *factor, const double *vector,
+                 double * restrict results, size_t count)
+{
+    size_t i;
+    double b = *base;
+
+    for (i = 0; i<count; i++)
+    {
+        double t = factor[i], x = vector[i];
+        results[i] = b - t*x;
+    }
+}
+
+/*
+  given a numerator and denominator for the ray-plane intersection, compute the
+  resulting factors <t> that solve the ray-plane intersection for <count>
+  elements.
+
+  It the factor <t> is negative, the resulting ray will never collide, so return
+  a NAN.
+
+  In the _sv version of the function, a single numerator is provided and <count>
+  denominators are present.
+ */
+static void
+ray_factor_array_sv(const double *num, const double *denom,
+                   double * restrict result, size_t count)
+{
+    size_t i;
+    double nume = *num;
+    for (i = 0; i < count; i++)
+    {
+        double tmp = nume/denom[i];
+        result[i] = tmp < 0.0 ? tmp : NAN;
+    }
+}
+
+static void
+project_on_planar_detector_vsv(const struct planar_detector_struct *pd_data,
+                               const double *ray_origin,
+                               const double *ray_vector,
+                               double * restrict results,
+                               size_t count)
+{
+    /* note: this is written in a way that that compilers seem to do a nice
+       job using vectorization.
+       Operands are placed into local variables. They are only loaded from
+       memory once when they enter in "scope". This seems to make compilers
+       more eager to vectorize.
+    */
+    size_t i;
+    double orig0 = ray_origin[0], orig1 = ray_origin[1], orig2 = ray_origin[2];
+    const double *x = pd_data->x, *y = pd_data->y, *plane = pd_data->plane;
+    double plane0 = plane[0], plane1 = plane[1], plane2 = plane[2], plane3 = plane[3];
+    double x0 = x[0], x1 = x[1], x2 = x[2], x3 = x[3];
+    double y0 = y[0], y1 = y[1], y2 = y[2], y3 = y[3];
+    double x_base = x3 + x0*orig0 + x1*orig1 + x2*orig2;
+    double y_base = y3 + y0*orig0 + y1*orig1 + y2*orig2;
+    double num = plane3 + plane0*orig0 + plane1*orig1 + plane2*orig2;
+
+    for (i=0; i<count; i++)
+    {
+        double vect0 = ray_vector[i*3+0], vect1 = ray_vector[i*3+1], vect2 = ray_vector[i*3+2];
+        double denom = plane0*vect0 + plane1*vect1 + plane2*vect2;
+        double x_vect = x0*vect0 + x1*vect1 + x2*vect2;
+        double y_vect = y0*vect0 + y1*vect1 + y2*vect2;
+        double t = num/denom;
+        double factor = t < 0.0 ? t : NAN;
+
+        results[2*i+0] = x_base - factor*x_vect;
+        results[2*i+1] = y_base - factor*y_vect;
+    }
+}
+
+static void
+project_on_planar_detector_vvv(const struct planar_detector_struct *pd_data,
+                               const double *ray_origin,
+                               const double *ray_vector,
+                               double * restrict results,
+                               size_t count)
+{
+    size_t i;
+    const double *x = pd_data->x, *y = pd_data->y, *plane = pd_data->plane;
+    double plane0 = plane[0], plane1 = plane[1], plane2 = plane[2], plane3 = plane[3];
+    double x0 = x[0], x1 = x[1], x2 = x[2], x3 = x[3];
+    double y0 = y[0], y1 = y[1], y2 = y[2], y3 = y[3];
+
+
+    for (i=0; i<count; i++)
+    {
+        double orig0 = ray_origin[i*3+0], orig1 = ray_origin[i*3+1], orig2 = ray_origin[i*3+2];
+        double vect0 = ray_vector[i*3+0], vect1 = ray_vector[i*3+1], vect2 = ray_vector[i*3+2];
+        double num = plane3 + plane0*orig0 + plane1*orig1 + plane2*orig2;
+        double x_base = x3 + x0*orig0 + x1*orig1 + x2*orig2;
+        double y_base = y3 + y0*orig0 + y1*orig1 + y2*orig2;
+        double denom = plane0*vect0 + plane1*vect1 + plane2*vect2;
+        double x_vect = x0*vect0 + x1*vect1 + x2*vect2;
+        double y_vect = y0*vect0 + y1*vect1 + y2*vect2;
+        double t = num/denom;
+        double factor = t < 0.0 ? t : NAN;
+
+        results[2*i+0] = x_base - factor*x_vect;
+        results[2*i+1] = y_base - factor*y_vect;
+    }
+}
 
 /*
   returns N, where N solves N*vect+origin laying in the plane defined by plane.
@@ -298,12 +431,6 @@ gvec_to_xy(size_t npts, const double *gVec_cs,
     }
 }
 
-struct planar_detector_struct {
-    double plane[4];
-    double x[4];
-    double y[4];
-};
-
 static void
 rays_to_planar_detector (const void *detector_data,
                          const double *ray_origin, size_t ray_origin_count,
@@ -319,90 +446,13 @@ rays_to_planar_detector (const void *detector_data,
 
     if (ray_origin_count == 1)
     {
-        #define INNER_SIZE GV2XY_GROUP_SIZE
-        double t[INNER_SIZE];
-        double point[3*INNER_SIZE];
-        const double *orig = ray_origin;
-        double num;
-        double denom[INNER_SIZE];
-
-        num = (plane[3] - v3_v3s_dot(plane, orig, 1));
-        for (i = 0; i + INNER_SIZE - 1 < ray_vector_count; i += INNER_SIZE)
-        {
-            size_t inner;
-            for (inner = 0; inner < INNER_SIZE; inner++)
-            {
-                denom[inner] = v3_v3s_dot(plane, ray_vector + 3*(i+inner), 1);
-            }
-            for (inner = 0; inner < INNER_SIZE; inner++)
-            {
-                t[inner] = num/denom[inner];
-            }
-            for (inner = 0; inner < INNER_SIZE; inner++)
-            {
-                if (t[inner] >= 0.0)
-                {
-                    v3s_s_v3_muladd(ray_vector + 3*(i+inner), 1, t[inner], orig, point + 3*inner);
-                    projected_xy[2*(i+inner)] = x[3] + v3_v3s_dot(point + 3*inner, x, 1);
-                    projected_xy[2*(i+inner)+1] = y[3] + v3_v3s_dot(point + 3*inner, y, 1);
-                }
-                else
-                {
-                    projected_xy[2*(i+inner)] = NAN;
-                    projected_xy[2*(i+inner)+1] = NAN;
-                }
-            }
-        }
-        if (i < ray_vector_count)
-        {
-            size_t inner, missing = ray_vector_count-i;
-            for (inner = 0; inner < INNER_SIZE; inner++)
-            {
-                denom[inner] = v3_v3s_dot(plane, ray_vector + 3*(i+inner), 1);
-            }
-            for (inner = 0; inner < missing; inner++)
-            {
-                t[inner] = num/denom[inner];
-            }
-            for (inner = 0; inner < missing; inner++)
-            {
-                if (t[inner] >= 0.0)
-                {
-                    v3s_s_v3_muladd(ray_vector + 3*(i+inner), 1, t[inner], orig, point + 3*inner);
-                    projected_xy[2*(i+inner)] = x[3] + v3_v3s_dot(point + 3*inner, x, 1);
-                    projected_xy[2*(i+inner)+1] = y[3] + v3_v3s_dot(point + 3*inner, y, 1);
-                }
-                else
-                {
-                    projected_xy[2*(i+inner)] = NAN;
-                    projected_xy[2*(i+inner)+1] = NAN;
-                }
-            }
-        }
-        #undef INNER_SIZE
+        project_on_planar_detector_vsv(pd, ray_origin, ray_vector, projected_xy,
+                                       ray_vector_count);
     }
     else
     {
-        for (i = 0; i < ray_vector_count; i++) {
-            const double *orig = ray_origin + 3*i;
-            const double *vect = ray_vector + 3*i;
-            double t, num, denom;
-            num = plane[3] - v3_v3s_dot(plane, orig, 1);
-            denom = v3_v3s_dot(plane, vect, 1);
-            t = num/denom;
-            if (t >= 0.0)
-            {
-                double point[3];
-                v3s_s_v3_muladd(vect, 1, t, orig, point);
-                projected_xy[2*i] = v3_v3s_dot(point, x, 1) + x[3];
-                projected_xy[2*i+1] = v3_v3s_dot(point, y, 1) + y[3];
-            }
-            else
-            {
-                projected_xy[2*i] = NAN;
-                projected_xy[2*i+1] = NAN;
-            }
-        }
+        project_on_planar_detector_vvv(pd, ray_origin, ray_vector, projected_xy,
+                                       ray_vector_count);
     }
 }
 
@@ -535,7 +585,7 @@ gvec_to_xy_vect(size_t npts, const double *gVec_cs,
 
     /* build the planar detector struct */
     v3s_copy(rMat_d + 2, 3, planar_detector_data.plane);
-    planar_detector_data.plane[3] = v3_v3s_dot(tVec_d, rMat_d + 2, 3);
+    planar_detector_data.plane[3] = -v3_v3s_dot(tVec_d, rMat_d + 2, 3);
     v3s_copy(rMat_d + 0, 3, planar_detector_data.x);
     planar_detector_data.x[3] = -v3_v3s_dot(tVec_d, rMat_d + 0, 3);
     v3s_copy(rMat_d + 1, 3, planar_detector_data.y);
