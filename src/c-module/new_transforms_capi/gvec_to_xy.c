@@ -530,8 +530,8 @@ gvec_to_xy_detector(size_t npts, const double *gVec_cs,
     else
     {
         #define INNER_SIZE GV2XY_GROUP_SIZE
-        double ray_origin[INNER_SIZE], ray_vector[INNER_SIZE];
-        double gVec_sam[INNER_SIZE], gVec_lab[INNER_SIZE];
+        double ray_origin[INNER_SIZE*3], ray_vector[INNER_SIZE*3];
+        double gVec_sam[INNER_SIZE*3], gVec_lab[INNER_SIZE*3];
 
         for (i = 0; i + INNER_SIZE - 1 < npts; i += INNER_SIZE)
         {
