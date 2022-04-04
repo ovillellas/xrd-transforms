@@ -2,6 +2,7 @@
 #if !defined(XRD_SINGLE_COMPILE_UNIT) || !XRD_SINGLE_COMPILE_UNIT
 #  include "transforms_utils.h"
 #  include "transforms_prototypes.h"
+#  include "ndargs_helper.h"
 #endif
 
 
@@ -75,18 +76,35 @@ XRD_PYTHON_WRAPPER const char *docstring_unitRowVectors =
 XRD_PYTHON_WRAPPER PyObject *
 python_unitRowVector(PyObject * self, PyObject * args)
 {
-    PyArrayObject *aop_out;
-    named_array_1d in = { "vecIn", NULL };
-    npy_intp out_dims[1];
+    PyArrayObject *aop_out = NULL;
+    nah_array in = { NULL, "vecIn", NAH_TYPE_DP_FP, { NAH_DIM_ANY, NAH_DIM_OPT}}; 
     
     if ( !PyArg_ParseTuple(args,"O&",
-                           array_1d_converter, &in) )
+                           nah_array_converter, &in) )
         return(NULL);
 
-    out_dims[0] = (npy_intp)in.count;
-    aop_out = (PyArrayObject*)PyArray_EMPTY(1, out_dims, NPY_DOUBLE, 0);
+    /*
+      At this point, nah_array_converter should just let pass one or two
+      dimensional arrays with double dtype that are properly aligned
+    */
+    aop_out = (PyArrayObject*)PyArray_EMPTY(PyArray_NDIM(in.pyarray),
+                                            PyArray_SHAPE(in.pyarray),
+                                            NPY_DOUBLE, 0);
+    if (aop_out)
+    {
+        if (PyArray_NDIM(in.pyarray) == 1)
+            unit_row_vector(PyArray_DIM(in.pyarray, 0),
+                            (double*)PyArray_DATA(in.pyarray),
+                            (double*)PyArray_DATA(aop_out));
+        else
+            unit_row_vectors(PyArray_DIM(in.pyarray, 0),
+                             PyArray_DIM(in.pyarray,1),
+                             (double *)PyArray_DATA(in.pyarray),
+                             (double *)PyArray_DATA(aop_out));
 
-    unit_row_vector(in.count, in.data, (double *)PyArray_DATA(aop_out));
+            
+                            
+    }
 
     return (PyObject*)aop_out;
 }
@@ -95,20 +113,30 @@ python_unitRowVector(PyObject * self, PyObject * args)
 XRD_PYTHON_WRAPPER PyObject *
 python_unitRowVectors(PyObject *self, PyObject *args)
 {
-    PyArrayObject *aop_out;
-    named_array_2d in = { "vecIn", NULL };
-    npy_intp out_dims[2];
-
-    if ( !PyArg_ParseTuple(args, "O&",
-                           array_2d_converter, &in) )
+    PyArrayObject *aop_out = NULL;
+    nah_array in = { NULL, "vecIn", NAH_TYPE_DP_FP, { NAH_DIM_ANY, NAH_DIM_ANY }}; 
+    
+    if ( !PyArg_ParseTuple(args,"O&",
+                           nah_array_converter, &in) )
         return(NULL);
 
-    out_dims[0] = (npy_intp)in.outer_count;
-    out_dims[1] = (npy_intp)in.inner_count;
-    aop_out = (PyArrayObject*)PyArray_EMPTY(2, out_dims, NPY_DOUBLE, 0);
+    /*
+      At this point, nah_array_converter should just let pass two
+      dimensional arrays with double dtype that are properly aligned.
 
-    unit_row_vectors(in.outer_count, in.inner_count, in.data,
-                     (double *)PyArray_DATA(aop_out));
+      Note that this functions should not be needed as this case is also
+      hndled by unitRowVector right now.
+    */
+    aop_out = (PyArrayObject*)PyArray_EMPTY(PyArray_NDIM(in.pyarray),
+                                            PyArray_SHAPE(in.pyarray),
+                                            NPY_DOUBLE, 0);
+    if (aop_out)
+    {
+        unit_row_vectors(PyArray_DIM(in.pyarray, 0),
+                         PyArray_DIM(in.pyarray,1),
+                         (double *)PyArray_DATA(in.pyarray),
+                         (double *)PyArray_DATA(aop_out));
+    }
 
     return (PyObject*)aop_out;
 }
