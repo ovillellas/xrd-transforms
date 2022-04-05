@@ -2,7 +2,7 @@
 #if !defined(XRD_SINGLE_COMPILE_UNIT) || !XRD_SINGLE_COMPILE_UNIT
 #  include "transforms_utils.h"
 #  include "transforms_prototypes.h"
-#  include "checks.h"
+#  include "ndargs_helper.h"
 #endif
 
 
@@ -75,15 +75,15 @@ python_makeEtaFrameRotMat(PyObject * self, PyObject * args)
 {
     PyArrayObject *rMat=NULL;
     npy_intp dims[2];
-    named_vector3 b = { "bvec_l", NULL };
-    named_vector3 e = { "evec_l", NULL };
+    nah_array b = { NULL, "bvec_l", NAH_TYPE_DP_FP, { 3 } };
+    nah_array e = { NULL, "evec_l", NAH_TYPE_DP_FP, { 3 } };
     double *rPtr;
     int errcode = 0;
 
     /* Parse arguments */
-    if ( !PyArg_ParseTuple(args, "O&O&",
-                           vector3_converter, &b,
-                           vector3_converter, &e))
+    if (!PyArg_ParseTuple(args, "O&O&",
+                          nah_array_converter, &b,
+                          nah_array_converter, &e))
         goto fail;
 
     /* Allocate the result matrix with appropriate dimensions and type */
@@ -95,7 +95,9 @@ python_makeEtaFrameRotMat(PyObject * self, PyObject * args)
     rPtr = (double*)PyArray_DATA(rMat);
 
     /* Call the actual function */
-    errcode = make_beam_rmat(b.data, e.data, rPtr);
+    errcode = make_beam_rmat(PyArray_DATA(b.pyarray),
+                             PyArray_DATA(e.pyarray),
+                             rPtr);
 
     if (0 == errcode)
         goto done;
@@ -103,17 +105,17 @@ python_makeEtaFrameRotMat(PyObject * self, PyObject * args)
     switch (errcode) {
     case TF_MAKE_BEAM_RMAT_ERR_BEAM_ZERO:
         /* beam vec is zero (within an epsilon) */
-        raise_runtime_error("bvec_l MUST NOT be ZERO!");
+        PyErr_Format(PyExc_RuntimeError, "bvec_l MUST NOT be ZERO!");
         goto fail;
     case TF_MAKE_BEAM_RMAT_ERR_COLLINEAR:
         /* beam vec and eta vec are collinear */
-        raise_runtime_error("bvec_l and evec_l MUST NOT be collinear!");
+        PyErr_Format(PyExc_RuntimeError, "bvec_l and evec_l MUST NOT be collinear!");
         goto fail;
     default:
         /* this should not really happen, unless code has been modified in the
            C func to support another error status whose handling wasn't added
            here */
-        raise_runtime_error("Unexpected error");
+        PyErr_Format(PyExc_RuntimeError, "Unexpected error");
         goto fail;
     }
 
