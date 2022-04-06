@@ -438,11 +438,7 @@ rays_to_planar_detector (const void *detector_data,
                          double * restrict projected_xy, size_t projected_xy_count)
 
 {
-    size_t i;
     const struct planar_detector_struct *pd = (struct planar_detector_struct *)detector_data;
-    const double *plane = pd->plane;
-    const double *x = pd->x;
-    const double *y = pd->y;
 
     if (ray_origin_count == 1)
     {
@@ -612,6 +608,48 @@ XRD_PYTHON_WRAPPER const char *docstring_gvecToDetectorXYArray =
     "c module implementation of gvec_to_xy (multi sample).\n"
     "Please use the Python wrapper.\n";
 
+
+/* normalize the beam vector.
+ * in is the beam vector input (either null or a 3 element vector)
+ * work is a work buffer where the result is to be stored.
+ * if the normalized beam vector results in a Z vector, NULL is returned.
+ */
+static inline double *
+normalize_beam(double *in, double *work)
+{
+    double beam_sqrnorm;
+    if (NULL == in)
+        return NULL;
+
+    beam_sqrnorm = v3_v3s_dot(in, in, 1);
+    if (beam_sqrnorm > (epsf*epsf))
+    {
+        double beam_z;
+        double beam_rnorm = -1.0/sqrt(beam_sqrnorm);
+        beam_z = in[2] * beam_rnorm;
+        if (fabs(beam_z - 1.0) < epsf)
+        {
+            /* consider that beam is {0, 0, 1}, activate fast path by using a
+               NULL beam */
+            return NULL;
+        }
+        else
+        {
+            /* normalize the beam vector in full... */
+            work[0] = in[0] * beam_rnorm;
+            work[1] = in[1] * beam_rnorm;
+            work[2] = beam_z;
+            
+            return work;
+        }
+    }
+    /* this case maybe should result in an error. Is is basically getting a
+     * 0 beam vector
+     */
+    return in;
+}
+
+
 /*
   Takes a list of unit reciprocal lattice vectors in crystal frame to the
   specified detector-relative frame, subject to the conditions:
@@ -635,108 +673,56 @@ XRD_PYTHON_WRAPPER const char *docstring_gvecToDetectorXYArray =
 XRD_PYTHON_WRAPPER PyObject *
 python_gvecToDetectorXY(PyObject * self, PyObject * args)
 {
-    PyArrayObject *gVec_c,
-		*rMat_d, *rMat_s, *rMat_c,
-		*tVec_d, *tVec_s, *tVec_c,
-		*beamVec;
+    nah_array gVec_c = { NULL, "gVec_c", NAH_TYPE_DP_FP, { 3, NAH_DIM_ANY }};
+    nah_array rMat_d = { NULL, "rMat_d", NAH_TYPE_DP_FP, { 3, 3 }};
+    nah_array rMat_s = { NULL, "rMat_s", NAH_TYPE_DP_FP, { 3, 3 }};
+    nah_array rMat_c = { NULL, "rMat_c", NAH_TYPE_DP_FP, { 3, 3 }};
+    nah_array tVec_d = { NULL, "tVed_d", NAH_TYPE_DP_FP, { 3 }};
+    nah_array tVec_s = { NULL, "tVec_s", NAH_TYPE_DP_FP, { 3 }};
+    nah_array tVec_c = { NULL, "tVec_c", NAH_TYPE_DP_FP, { 3 }};
+    nah_array beamVec = { NULL, "beamVec", NAH_TYPE_NONE | NAH_TYPE_DP_FP, { 3 }};
     PyArrayObject *result;
 
-    int dgc, drd, drs, drc, dtd, dts, dtc, dbv;
     npy_intp npts, dims[2];
-
-    double *gVec_c_Ptr,
-        *rMat_d_Ptr, *rMat_s_Ptr, *rMat_c_Ptr,
-        *tVec_d_Ptr, *tVec_s_Ptr, *tVec_c_Ptr,
-        *beamVec_Ptr;
-    double beam[3], beam_sqrnorm;
-    double *result_Ptr;
+    double beam[3], *beam_ptr;
 
     /* Parse arguments */
-    if ( !PyArg_ParseTuple(args,"OOOOOOOO",
-                           &gVec_c,
-                           &rMat_d, &rMat_s, &rMat_c,
-                           &tVec_d, &tVec_s, &tVec_c,
-                           &beamVec)) return(NULL);
-    if ( gVec_c  == NULL ||
-         rMat_d  == NULL || rMat_s == NULL || rMat_c == NULL ||
-         tVec_d  == NULL || tVec_s == NULL || tVec_c == NULL ||
-         beamVec == NULL ) return(NULL);
+    if (!PyArg_ParseTuple(args,"O&O&O&O&O&O&O&|O&",
+                          nah_array_converter, &gVec_c,
+                          nah_array_converter, &rMat_d,
+                          nah_array_converter, &rMat_s,
+                          nah_array_converter, &rMat_c,
+                          nah_array_converter, &tVec_d,
+                          nah_array_converter, &tVec_s,
+                          nah_array_converter, &tVec_c,
+                          nah_array_converter, &beamVec))
+        return(NULL);
 
-    /* Verify shape of input arrays */
-    dgc = PyArray_NDIM(gVec_c);
-    drd = PyArray_NDIM(rMat_d);
-    drs = PyArray_NDIM(rMat_s);
-    drc = PyArray_NDIM(rMat_c);
-    dtd = PyArray_NDIM(tVec_d);
-    dts = PyArray_NDIM(tVec_s);
-    dtc = PyArray_NDIM(tVec_c);
-    dbv = PyArray_NDIM(beamVec);
-    assert( dgc == 2 );
-    assert( drd == 2 && drs == 2 && drc == 2 );
-    assert( dtd == 1 && dts == 1 && dtc == 1 );
-    assert( dbv == 1 );
-
-    /* Verify dimensions of input arrays */
-    npts = PyArray_DIMS(gVec_c)[0];
-
-    assert( PyArray_DIMS(gVec_c)[1]  == 3 );
-    assert( PyArray_DIMS(rMat_d)[0]  == 3 && PyArray_DIMS(rMat_d)[1] == 3 );
-    assert( PyArray_DIMS(rMat_s)[0]  == 3 && PyArray_DIMS(rMat_s)[1] == 3 );
-    assert( PyArray_DIMS(rMat_c)[0]  == 3 && PyArray_DIMS(rMat_c)[1] == 3 );
-    assert( PyArray_DIMS(tVec_d)[0]  == 3 );
-    assert( PyArray_DIMS(tVec_s)[0]  == 3 );
-    assert( PyArray_DIMS(tVec_c)[0]  == 3 );
-    assert( PyArray_DIMS(beamVec)[0] == 3 );
+    /* number of gvectors comes from gvec_c outer dimension */
+    npts = PyArray_DIM(gVec_c.pyarray, 0);
 
     /* Allocate C-style array for return data */
-    dims[0] = npts; dims[1] = 2;
+    dims[0] = npts;
+    dims[1] = 2;
     result = (PyArrayObject*)PyArray_EMPTY(2,dims,NPY_DOUBLE,0);
 
-    /* Grab data pointers into various arrays */
-    gVec_c_Ptr  = (double*)PyArray_DATA(gVec_c);
-
-    rMat_d_Ptr  = (double*)PyArray_DATA(rMat_d);
-    rMat_s_Ptr  = (double*)PyArray_DATA(rMat_s);
-    rMat_c_Ptr  = (double*)PyArray_DATA(rMat_c);
-
-    tVec_d_Ptr  = (double*)PyArray_DATA(tVec_d);
-    tVec_s_Ptr  = (double*)PyArray_DATA(tVec_s);
-    tVec_c_Ptr  = (double*)PyArray_DATA(tVec_c);
-
-    beamVec_Ptr = (double*)PyArray_DATA(beamVec);
-
-    result_Ptr  = (double*)PyArray_DATA(result);
-
-    /* normalize beam vector and detect if it is z */
-    beam_sqrnorm = v3_v3s_dot(beamVec_Ptr, beamVec_Ptr, 1);
-    if (beam_sqrnorm > (epsf*epsf))
-    {
-        double beam_z;
-        double beam_rnorm = -1.0/sqrt(beam_sqrnorm);
-        beam_z = beamVec_Ptr[2] * beam_rnorm;
-        if (fabs(beam_z - 1.0) < epsf)
-        {
-            /* consider that beam is {0, 0, 1}, activate fast path by using a
-               NULL beam */
-            beamVec_Ptr = NULL;
-        }
-        else
-        {
-            /* normalize the beam vector in full... */
-            beam[0] = beamVec_Ptr[0] * beam_rnorm;
-            beam[1] = beamVec_Ptr[1] * beam_rnorm;
-            beam[2] = beam_z;
-            beamVec_Ptr = beam;
-        }
-    }
-
+    if (beamVec.pyarray)
+        beam_ptr = normalize_beam((double *)PyArray_DATA(beamVec.pyarray), beam);
+    else
+        beam_ptr = NULL;
+    
     /* Call the computational routine */
-    GVEC_TO_XY_FUNC(npts, gVec_c_Ptr,
-               rMat_d_Ptr, rMat_s_Ptr, rMat_c_Ptr,
-               tVec_d_Ptr, tVec_s_Ptr, tVec_c_Ptr,
-               beamVec_Ptr,
-               result_Ptr,
-               GV2XY_SINGLE_RMAT_S);
+    GVEC_TO_XY_FUNC(npts,
+                    (double *)PyArray_DATA(gVec_c.pyarray),
+                    (double *)PyArray_DATA(rMat_d.pyarray),
+                    (double *)PyArray_DATA(rMat_s.pyarray),
+                    (double *)PyArray_DATA(rMat_c.pyarray),
+                    (double *)PyArray_DATA(tVec_d.pyarray),
+                    (double *)PyArray_DATA(tVec_s.pyarray),
+                    (double *)PyArray_DATA(tVec_c.pyarray),
+                    beam_ptr,
+                    (double *)PyArray_DATA(result),
+                    GV2XY_SINGLE_RMAT_S);
 
     /* Build and return the nested data structure */
     return((PyObject*)result);
@@ -765,113 +751,64 @@ python_gvecToDetectorXY(PyObject * self, PyObject * args)
 XRD_PYTHON_WRAPPER PyObject *
 python_gvecToDetectorXYArray(PyObject * self, PyObject * args)
 {
-    PyArrayObject *gVec_c,
-		*rMat_d, *rMat_s, *rMat_c,
-		*tVec_d, *tVec_s, *tVec_c,
-		*beamVec;
+    nah_array gVec_c = { NULL, "gVec_c", NAH_TYPE_DP_FP, { 3, NAH_DIM_ANY }};
+    nah_array rMat_d = { NULL, "rMat_d", NAH_TYPE_DP_FP, { 3, 3 }};
+    nah_array rMat_s = { NULL, "rMat_s", NAH_TYPE_DP_FP, { 3, 3, NAH_DIM_ANY }};
+    nah_array rMat_c = { NULL, "rMat_c", NAH_TYPE_DP_FP, { 3, 3 }};
+    nah_array tVec_d = { NULL, "tVec_d", NAH_TYPE_DP_FP, { 3 }};
+    nah_array tVec_s = { NULL, "tVec_s", NAH_TYPE_DP_FP, { 3 }};
+    nah_array tVec_c = { NULL, "tVec_c", NAH_TYPE_DP_FP, { 3 }};
+    nah_array beamVec = { NULL, "beamVec", NAH_TYPE_NONE | NAH_TYPE_DP_FP, { 3 }};
     PyArrayObject *result;
-
-    int dgc, drd, drs, drc, dtd, dts, dtc, dbv;
     npy_intp npts, dims[2];
-
-    double *gVec_c_Ptr,
-        *rMat_d_Ptr, *rMat_s_Ptr, *rMat_c_Ptr,
-        *tVec_d_Ptr, *tVec_s_Ptr, *tVec_c_Ptr,
-        *beamVec_Ptr;
-    double beam[3], beam_sqrnorm;
-    double *result_Ptr;
+    double beam[3], *beam_ptr;
 
     /* Parse arguments */
-    if ( !PyArg_ParseTuple(args,"OOOOOOOO",
-                           &gVec_c,
-                           &rMat_d, &rMat_s, &rMat_c,
-                           &tVec_d, &tVec_s, &tVec_c,
-                           &beamVec)) return(NULL);
-    if ( gVec_c  == NULL ||
-         rMat_d  == NULL || rMat_s == NULL || rMat_c == NULL ||
-         tVec_d  == NULL || tVec_s == NULL || tVec_c == NULL ||
-         beamVec == NULL ) return(NULL);
-
-    /* Verify shape of input arrays */
-    dgc = PyArray_NDIM(gVec_c);
-    drd = PyArray_NDIM(rMat_d);
-    drs = PyArray_NDIM(rMat_s);
-    drc = PyArray_NDIM(rMat_c);
-    dtd = PyArray_NDIM(tVec_d);
-    dts = PyArray_NDIM(tVec_s);
-    dtc = PyArray_NDIM(tVec_c);
-    dbv = PyArray_NDIM(beamVec);
-    assert( dgc == 2 );
-    assert( drd == 2 && drs == 3 && drc == 2 );
-    assert( dtd == 1 && dts == 1 && dtc == 1 );
-    assert( dbv == 1 );
+    if ( !PyArg_ParseTuple(args,"O&O&O&O&O&O&O&|O&",
+                           nah_array_converter, &gVec_c,
+                           nah_array_converter, &rMat_d,
+                           nah_array_converter, &rMat_s,
+                           nah_array_converter, &rMat_c,
+                           nah_array_converter, &tVec_d,
+                           nah_array_converter, &tVec_s,
+                           nah_array_converter, &tVec_c,
+                           nah_array_converter, &beamVec))
+        return(NULL);
 
     /* Verify dimensions of input arrays */
-    npts = PyArray_DIMS(gVec_c)[0];
+    npts = PyArray_DIMS(gVec_c.pyarray)[0];
 
-    if (npts != PyArray_DIM(rMat_s, 0)) {
-        PyErr_Format(PyExc_ValueError, "gVec_c and rMat_s length mismatch %d vs %d",
-                     (int)PyArray_DIM(gVec_c, 0), (int)PyArray_DIM(rMat_s, 0));
+    if (npts != PyArray_DIM(rMat_s.pyarray, 0))
+    {
+        PyErr_Format(PyExc_ValueError,
+                     "gVec_c and rMat_s length mismatch %zd vs %zd",
+                     PyArray_DIM(gVec_c.pyarray, 0),
+                     PyArray_DIM(rMat_s.pyarray, 0));
         return NULL;
     }
-    assert( PyArray_DIMS(gVec_c)[1]  == 3 );
-    assert( PyArray_DIMS(rMat_d)[0]  == 3 && PyArray_DIMS(rMat_d)[1] == 3 );
-    assert( PyArray_DIMS(rMat_s)[1]  == 3 && PyArray_DIMS(rMat_s)[2] == 3 );
-    assert( PyArray_DIMS(rMat_c)[0]  == 3 && PyArray_DIMS(rMat_c)[1] == 3 );
-    assert( PyArray_DIMS(tVec_d)[0]  == 3 );
-    assert( PyArray_DIMS(tVec_s)[0]  == 3 );
-    assert( PyArray_DIMS(tVec_c)[0]  == 3 );
-    assert( PyArray_DIMS(beamVec)[0] == 3 );
 
     /* Allocate C-style array for return data */
-    dims[0] = npts; dims[1] = 2;
+    dims[0] = npts;
+    dims[1] = 2;
     result = (PyArrayObject*)PyArray_EMPTY(2,dims,NPY_DOUBLE,0);
 
-    /* Grab data pointers into various arrays */
-    gVec_c_Ptr  = (double*)PyArray_DATA(gVec_c);
-
-    rMat_d_Ptr  = (double*)PyArray_DATA(rMat_d);
-    rMat_s_Ptr  = (double*)PyArray_DATA(rMat_s);
-    rMat_c_Ptr  = (double*)PyArray_DATA(rMat_c);
-
-    tVec_d_Ptr  = (double*)PyArray_DATA(tVec_d);
-    tVec_s_Ptr  = (double*)PyArray_DATA(tVec_s);
-    tVec_c_Ptr  = (double*)PyArray_DATA(tVec_c);
-
-    beamVec_Ptr = (double*)PyArray_DATA(beamVec);
-
-    result_Ptr  = (double*)PyArray_DATA(result);
-
-    /* normalize beam vector and detect if it is z */
-    beam_sqrnorm = v3_v3s_dot(beamVec_Ptr, beamVec_Ptr, 1);
-    if (beam_sqrnorm > (epsf*epsf))
-    {
-        double beam_z;
-        double beam_rnorm = -1.0/sqrt(beam_sqrnorm);
-        beam_z = beamVec_Ptr[2] * beam_rnorm;
-        if (fabs(beam_z - 1.0) < epsf)
-        {
-            /* consider that beam is {0, 0, 1}, activate fast path by using a
-               NULL beam */
-            beamVec_Ptr = NULL;
-        }
-        else
-        {
-            /* normalize the beam vector in full... */
-            beam[0] = beamVec_Ptr[0] * beam_rnorm;
-            beam[1] = beamVec_Ptr[1] * beam_rnorm;
-            beam[2] = beam_z;
-            beamVec_Ptr = beam;
-        }
-    }
+    if (beamVec.pyarray)
+        beam_ptr = normalize_beam((double *)PyArray_DATA(beamVec.pyarray), beam);
+    else
+        beam_ptr = NULL;
 
     /* Call the computational routine */
-    GVEC_TO_XY_FUNC(npts, gVec_c_Ptr,
-               rMat_d_Ptr, rMat_s_Ptr, rMat_c_Ptr,
-               tVec_d_Ptr, tVec_s_Ptr, tVec_c_Ptr,
-               beamVec_Ptr,
-               result_Ptr,
-               0);
+    GVEC_TO_XY_FUNC(npts,
+                    (double *)PyArray_DATA(gVec_c.pyarray),
+                    (double *)PyArray_DATA(rMat_d.pyarray),
+                    (double *)PyArray_DATA(rMat_s.pyarray),
+                    (double *)PyArray_DATA(rMat_c.pyarray),
+                    (double *)PyArray_DATA(tVec_d.pyarray),
+                    (double *)PyArray_DATA(tVec_s.pyarray),
+                    (double *)PyArray_DATA(tVec_c.pyarray),
+                    beam_ptr,
+                    (double *)PyArray_DATA(result),
+                    0);
 
     /* Build and return the nested data structure */
     return((PyObject*)result);
