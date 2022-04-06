@@ -2,6 +2,7 @@
 #if !defined(XRD_SINGLE_COMPILE_UNIT) || !XRD_SINGLE_COMPILE_UNIT
 #  include "transforms_utils.h"
 #  include "transforms_prototypes.h"
+#  include "nah_array.h"
 #endif
 
 #define GV2XY_GROUP_SIZE 128
