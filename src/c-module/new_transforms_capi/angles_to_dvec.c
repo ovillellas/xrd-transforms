@@ -2,6 +2,7 @@
 #if !defined(XRD_SINGLE_COMPILE_UNIT) || !XRD_SINGLE_COMPILE_UNIT
 #  include "transforms_utils.h"
 #  include "transforms_prototypes.h"
+#  include "ndargs_helper.h"
 #endif
 
 XRD_CFUNCTION void
@@ -76,64 +77,48 @@ XRD_PYTHON_WRAPPER const char *docstring_anglesToDVec =
 XRD_PYTHON_WRAPPER PyObject *
 python_anglesToDVec(PyObject * self, PyObject * args)
 {
-    PyArrayObject *angs, *bHat_l, *eHat_l, *rMat_c;
-    PyArrayObject *dVec_c;
+    /*
+      API interface in Python is:
+      angs, beam_vec=None, eta_vec=None, chi=None, rmat_c=None
+
+      right now, defaults are handled by the wrappers. This C module function
+      expects angs to be already 2d, and all optional arguments to have the
+      defaults filled by the calling wrapper.
+
+      TODO: handle defaults here?
+     */
+    nah_array angs = { NULL, "angs", NAH_TYPE_DP_FP, { 3, NAH_DIM_ANY }};
+    nah_array beam_vec = { NULL, "beam_vec", NAH_TYPE_DP_FP, { 3 }};
+    nah_array eta_vec = { NULL, "eta_vec", NAH_TYPE_DP_FP, { 3 }};
+    nah_array rmat_c = { NULL, "rmat_c", NAH_TYPE_DP_FP, { 3, 3 }};
+    PyArrayObject *result = NULL;
     double chi;
-    npy_intp nvecs, rdims[2];
 
-    int nangs, nbhat, nehat, nrmat;
-    int da1, db1, de1, dr1, dr2;
-
-    double *angs_ptr, *bHat_l_ptr, *eHat_l_ptr, *rMat_c_ptr;
-    double *dVec_c_ptr;
-
-    /* Parse arguments */
-    if ( !PyArg_ParseTuple(args,"OOOdO",
-                           &angs,
-                           &bHat_l, &eHat_l,
-                           &chi, &rMat_c)) return(NULL);
-    if ( angs == NULL ) return(NULL);
-
-    /* Verify shape of input arrays */
-    nangs = PyArray_NDIM(angs);
-    nbhat = PyArray_NDIM(bHat_l);
-    nehat = PyArray_NDIM(eHat_l);
-    nrmat = PyArray_NDIM(rMat_c);
-
-    assert( nangs==2 && nbhat==1 && nehat==1 && nrmat==2 );
-
-    /* Verify dimensions of input arrays */
-    nvecs = PyArray_DIMS(angs)[0]; /* rows */
-    da1   = PyArray_DIMS(angs)[1]; /* cols */
-
-    db1   = PyArray_DIMS(bHat_l)[0];
-    de1   = PyArray_DIMS(eHat_l)[0];
-    dr1   = PyArray_DIMS(rMat_c)[0];
-    dr2   = PyArray_DIMS(rMat_c)[1];
-
-    assert( da1 == 3 );
-    assert( db1 == 3 && de1 == 3);
-    assert( dr1 == 3 && dr2 == 3);
+    if ( !PyArg_ParseTuple(args,"O&O&O&dO&",
+                           nah_array_converter, &angs,
+                           nah_array_converter, &beam_vec,
+                           nah_array_converter, &eta_vec,
+                           &chi,
+                           nah_array_converter, &rmat_c))
+        return NULL;
 
     /* Allocate C-style array for return data */
-    rdims[0] = nvecs; rdims[1] = 3;
-    dVec_c = (PyArrayObject*)PyArray_EMPTY(2,rdims,NPY_DOUBLE,0);
+    result = (PyArrayObject*)PyArray_EMPTY(PyArray_NDIM(angs.pyarray),
+                                           PyArray_SHAPE(angs.pyarray),
+                                           NPY_DOUBLE,
+                                           0);
 
-    /* Grab pointers to the various data arrays */
-    angs_ptr   = (double*)PyArray_DATA(angs);
-    bHat_l_ptr = (double*)PyArray_DATA(bHat_l);
-    eHat_l_ptr = (double*)PyArray_DATA(eHat_l);
-    rMat_c_ptr = (double*)PyArray_DATA(rMat_c);
-    dVec_c_ptr = (double*)PyArray_DATA(dVec_c);
-
-    /* Call the actual function */
-    angles_to_dvec(nvecs, angs_ptr,
-                   bHat_l_ptr, eHat_l_ptr,
-                   chi, rMat_c_ptr,
-                   dVec_c_ptr);
+     /* Call the actual function */
+    angles_to_dvec(PyArray_DIM(angs.pyarray, 0),
+                   (double *)PyArray_DATA(angs.pyarray),
+                   (double *)PyArray_DATA(beam_vec.pyarray),
+                   (double *)PyArray_DATA(eta_vec.pyarray),
+                   chi,
+                   (double *)PyArray_DATA(rmat_c.pyarray),
+                   (double *)PyArray_DATA(result));
 
     /* Build and return the nested data structure */
-    return((PyObject*)dVec_c);
+    return((PyObject*)result);
 }
 
 #endif /* XRD_INCLUDE_PYTHON_WRAPPERS */
