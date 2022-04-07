@@ -87,7 +87,7 @@ python_anglesToGVec(PyObject * self, PyObject * args)
       that the input array is 2d.
       TODO: handle defaults here?
     */
-    nah_array angs = { NULL, "angs", NAH_TYPE_DP_FP, { 3, NAH_DIM_OPT }};
+    nah_array angs = { NULL, "angs", NAH_TYPE_DP_FP, { 3, NAH_DIM_ANY }};
     nah_array beam_vec = { NULL, "beam_vec", NAH_TYPE_DP_FP, { 3 }};
     nah_array eta_vec = { NULL, "eta_vec", NAH_TYPE_DP_FP, { 3 }};
     nah_array rmat_c = { NULL, "rmat_c", NAH_TYPE_DP_FP, { 3, 3 }};
