@@ -640,7 +640,7 @@ normalize_beam(double *in, double *work)
             work[0] = in[0] * beam_rnorm;
             work[1] = in[1] * beam_rnorm;
             work[2] = beam_z;
-            
+
             return work;
         }
     }
@@ -706,12 +706,14 @@ python_gvecToDetectorXY(PyObject * self, PyObject * args)
     dims[0] = npts;
     dims[1] = 2;
     result = (PyArrayObject*)PyArray_EMPTY(2,dims,NPY_DOUBLE,0);
+    if (!result)
+        goto fail_alloc;
 
     if (beamVec.pyarray)
         beam_ptr = normalize_beam((double *)PyArray_DATA(beamVec.pyarray), beam);
     else
         beam_ptr = NULL;
-    
+
     /* Call the computational routine */
     GVEC_TO_XY_FUNC(npts,
                     (double *)PyArray_DATA(gVec_c.pyarray),
@@ -726,12 +728,12 @@ python_gvecToDetectorXY(PyObject * self, PyObject * args)
                     GV2XY_SINGLE_RMAT_S);
 
     /* Build and return the nested data structure */
-    return((PyObject*)result);
+    return (PyObject *)result;
 
  fail_alloc:
     Py_XDECREF(result);
 
-    return PyError_NoMemory();
+    return PyErr_NoMemory();
 }
 
 /*
@@ -797,6 +799,8 @@ python_gvecToDetectorXYArray(PyObject * self, PyObject * args)
     dims[0] = npts;
     dims[1] = 2;
     result = (PyArrayObject*)PyArray_EMPTY(2,dims,NPY_DOUBLE,0);
+    if (!result)
+        goto fail_alloc;
 
     if (beamVec.pyarray)
         beam_ptr = normalize_beam((double *)PyArray_DATA(beamVec.pyarray), beam);
@@ -817,7 +821,12 @@ python_gvecToDetectorXYArray(PyObject * self, PyObject * args)
                     0);
 
     /* Build and return the nested data structure */
-    return((PyObject*)result);
+    return (PyObject *)result;
+
+ fail_alloc:
+    Py_XDECREF(result);
+
+    return PyErr_NoMemory();
 }
 
 
