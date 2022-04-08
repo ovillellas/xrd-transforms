@@ -674,14 +674,14 @@ normalize_beam(double *in, double *work)
 XRD_PYTHON_WRAPPER PyObject *
 python_gvecToDetectorXY(PyObject * self, PyObject * args)
 {
-    nah_array gVec_c = { NULL, "gVec_c", NAH_TYPE_DP_FP, { 3, NAH_DIM_ANY }};
-    nah_array rMat_d = { NULL, "rMat_d", NAH_TYPE_DP_FP, { 3, 3 }};
-    nah_array rMat_s = { NULL, "rMat_s", NAH_TYPE_DP_FP, { 3, 3 }};
-    nah_array rMat_c = { NULL, "rMat_c", NAH_TYPE_DP_FP, { 3, 3 }};
-    nah_array tVec_d = { NULL, "tVed_d", NAH_TYPE_DP_FP, { 3 }};
-    nah_array tVec_s = { NULL, "tVec_s", NAH_TYPE_DP_FP, { 3 }};
-    nah_array tVec_c = { NULL, "tVec_c", NAH_TYPE_DP_FP, { 3 }};
-    nah_array beamVec = { NULL, "beamVec", NAH_TYPE_NONE | NAH_TYPE_DP_FP, { 3 }};
+    nah_array gVec_c = { NULL, "gvec_c", NAH_TYPE_DP_FP, { 3, NAH_DIM_ANY }};
+    nah_array rMat_d = { NULL, "rmat_d", NAH_TYPE_DP_FP, { 3, 3 }};
+    nah_array rMat_s = { NULL, "rmat_s", NAH_TYPE_DP_FP, { 3, 3 }};
+    nah_array rMat_c = { NULL, "rmat_c", NAH_TYPE_DP_FP, { 3, 3 }};
+    nah_array tVec_d = { NULL, "tvec_d", NAH_TYPE_DP_FP, { 3 }};
+    nah_array tVec_s = { NULL, "tvec_s", NAH_TYPE_DP_FP, { 3 }};
+    nah_array tVec_c = { NULL, "tvec_c", NAH_TYPE_DP_FP, { 3 }};
+    nah_array beamVec = { NULL, "beam_vec", NAH_TYPE_NONE | NAH_TYPE_DP_FP, { 3 }};
     PyArrayObject *result;
 
     npy_intp npts, dims[2];
@@ -697,7 +697,7 @@ python_gvecToDetectorXY(PyObject * self, PyObject * args)
                           nah_array_converter, &tVec_s,
                           nah_array_converter, &tVec_c,
                           nah_array_converter, &beamVec))
-        return(NULL);
+        return NULL;
 
     /* number of gvectors comes from gvec_c outer dimension */
     npts = PyArray_DIM(gVec_c.pyarray, 0);
@@ -727,6 +727,11 @@ python_gvecToDetectorXY(PyObject * self, PyObject * args)
 
     /* Build and return the nested data structure */
     return((PyObject*)result);
+
+ fail_alloc:
+    Py_XDECREF(result);
+
+    return PyError_NoMemory();
 }
 
 /*
