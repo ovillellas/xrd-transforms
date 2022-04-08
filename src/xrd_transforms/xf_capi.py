@@ -102,7 +102,7 @@ def gvec_to_xy(gvec_c,
     if rmat_s.ndim > 2:
         result =  _impl.gvecToDetectorXYArray(gvec_c,
                                               rmat_d, rmat_s, rmat_c,
-                                              tvec_d, tvec_s, tvec_c,                                              
+                                              tvec_d, tvec_s, tvec_c,
                                               beam_vec)
     else:
         result =  _impl.gvecToDetectorXY(gvec_c,
@@ -119,15 +119,16 @@ def xy_to_gvec(xy_d,
                rmat_b=None,
                distortion=None,
                output_ref=False):
-    # in the C library beam vector and eta vector are expected. However we receive
-    # rmat_b. Please check this!
+    # in the C library beam vector and eta vector are expected. However we
+    # receive rmat_b. Please check this!
     #
-    # It also seems that the output_ref version is not present as the argument gets
-    # ignored
+    # It also seems that the output_ref version is not present as the argument
+    # gets ignored
 
     rmat_b = rmat_b if rmat_b is not None else cnst.identity_3x3
 
-    # the code seems to ignore this argument, assume output_ref == True not implemented
+    # the code seems to ignore this argument, assume output_ref == True not
+    # implemented
     assert not output_ref
 
     if distortion is not None:
@@ -142,9 +143,9 @@ def xy_to_gvec(xy_d,
     beam_vec = np.ascontiguousarray( (-rmat_b[:,2]).flatten() )
     eta_vec  = np.ascontiguousarray( rmat_b[:,0].flatten() ) #check this!
     return _impl.detectorXYToGvec(xy_det,
-                                             rmat_d, rmat_s,
-                                             tvec_d, tvec_s, tvec_c,
-                                             beam_vec, eta_vec)
+                                  rmat_d, rmat_s,
+                                  tvec_d, tvec_s, tvec_c,
+                                  beam_vec, eta_vec)
 
 
 

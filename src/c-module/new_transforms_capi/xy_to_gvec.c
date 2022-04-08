@@ -2,6 +2,7 @@
 #if !defined(XRD_SINGLE_COMPILE_UNIT) || !XRD_SINGLE_COMPILE_UNIT
 #  include "transforms_utils.h"
 #  include "transforms_prototypes.h"
+#  include "ndargs_helper.h"
 #endif
 
 
@@ -106,117 +107,119 @@ XRD_PYTHON_WRAPPER const char *docstring_detectorXYToGvec =
 /*
   Takes a list cartesian (x, y) pairs in the detector coordinates and calculates
   the associated reciprocal lattice (G) vectors and (bragg angle, azimuth) pairs
-  with respect to the specified beam and azimth (eta) reference directions
+  with respect to the specified beam and azimth (eta) reference directions.
+  Note the wrapper that calls this expects:
 
   Required Arguments:
-  xy_det -- (n, 2) ndarray or list-like input of n detector (x, y) points
-  rMat_d -- (3, 3) ndarray, the COB taking DETECTOR FRAME components to LAB FRAME
-  rMat_s -- (3, 3) ndarray, the COB taking SAMPLE FRAME components to LAB FRAME
-  tVec_d -- (3, 1) ndarray, the translation vector connecting LAB to DETECTOR
-  tVec_s -- (3, 1) ndarray, the translation vector connecting LAB to SAMPLE
-  tVec_c -- (3, 1) ndarray, the translation vector connecting SAMPLE to CRYSTAL
-
-  Optional Keyword Arguments:
-  beamVec -- (1, 3) mdarray containing the incident beam direction components in the LAB FRAME
-  etaVec  -- (1, 3) mdarray containing the reference azimuth direction components in the LAB FRAME
-
+  xy_det  -- (n, 2) ndarray or list-like input of n detector (x, y) points
+  rMat_d  -- (3, 3) ndarray, the COB taking DETECTOR FRAME components to LAB FRAME
+  rMat_s  -- (3, 3) ndarray, the COB taking SAMPLE FRAME components to LAB FRAME
+  tVec_d  -- (3, 1) ndarray, the translation vector connecting LAB to DETECTOR
+  tVec_s  -- (3, 1) ndarray, the translation vector connecting LAB to SAMPLE
+  tVec_c  -- (3, 1) ndarray, the translation vector connecting SAMPLE to CRYSTAL
+  beamVec -- (1, 3) ndarray, the incident beam direction components in the LAB FRAME
+  etaVec  -- (3, 3) ndarray
+ 
   Outputs:
-  (n, 2) ndarray containing the (tTh, eta) pairs associated with each (x, y)
-  (n, 3) ndarray containing the associated G vector directions in the LAB FRAME
-  associated with gVecs
+  tuple ((tTh, eta), gvec_l) where:
+  tTh    -- (n,) ndarray with the tTh associated with each (x, y)
+  eta    -- (n,) ndarray with the eta associated with each (x, y)
+  gvec_l -- (n, 3) ndarray containing the associated G vector directions in the
+         LAB FRAME associated with gVecs
 */
 XRD_PYTHON_WRAPPER PyObject *
 python_detectorXYToGvec(PyObject * self, PyObject * args)
 {
-    PyArrayObject *xy_det, *rMat_d, *rMat_s,
-		*tVec_d, *tVec_s, *tVec_c,
-		*beamVec, *etaVec;
-    PyArrayObject *tTh, *eta, *gVec_l;
-    PyObject *inner_tuple, *outer_tuple;
-
-    int dxy, drd, drs, dtd, dts, dtc, dbv, dev;
+    /* Right now, the Python wrapper guarantees that:
+       xy_det is at least 2d
+       optional parameter are always passed in, with its defaults
+     */
+    nah_array xy_det = { NULL, "xy_det", NAH_TYPE_DP_FP, { 2, NAH_DIM_ANY }};
+    nah_array rmat_d = { NULL, "rmat_d", NAH_TYPE_DP_FP, { 3, 3 }};
+    nah_array rmat_s = { NULL, "rmat_s", NAH_TYPE_DP_FP, { 3, 3 }};
+    nah_array tvec_d = { NULL, "tvec_d", NAH_TYPE_DP_FP, { 3 }};
+    nah_array tvec_s = { NULL, "tvec_s", NAH_TYPE_DP_FP, { 3 }};
+    nah_array tvec_c = { NULL, "tvec_c", NAH_TYPE_DP_FP, { 3 }};
+    nah_array beam_vec = { NULL, "beam_vec", NAH_TYPE_DP_FP, { 3 }};
+    nah_array eta_vec = { NULL, "eta_Vec", NAH_TYPE_DP_FP, { 3 }};
     npy_intp npts, dims[2];
-
-    double *xy_Ptr, *rMat_d_Ptr, *rMat_s_Ptr,
-        *tVec_d_Ptr, *tVec_s_Ptr, *tVec_c_Ptr,
-        *beamVec_Ptr, *etaVec_Ptr;
-    double *tTh_Ptr, *eta_Ptr, *gVec_l_Ptr;
+    PyObject *inner_tuple = NULL, *outer_tuple = NULL;
+    PyArrayObject *gvec_l = NULL;
+    PyArrayObject *tTh = NULL;
+    PyArrayObject *eta = NULL;
 
     /* Parse arguments */
-    if ( !PyArg_ParseTuple(args,"OOOOOOOO",
-                           &xy_det,
-                           &rMat_d, &rMat_s,
-                           &tVec_d, &tVec_s, &tVec_c,
-                           &beamVec, &etaVec)) return(NULL);
-    if ( xy_det  == NULL || rMat_d == NULL || rMat_s == NULL ||
-         tVec_d  == NULL || tVec_s == NULL || tVec_c == NULL ||
-         beamVec == NULL || etaVec == NULL ) return(NULL);
+    if (!PyArg_ParseTuple(args,"O&O&O&O&O&O&O&O&",
+                          nah_array_converter, &xy_det,
+                          nah_array_converter, &rmat_d,
+                          nah_array_converter, &rmat_s,
+                          nah_array_converter, &tvec_d,
+                          nah_array_converter, &tvec_s,
+                          nah_array_converter, &tvec_c,
+                          nah_array_converter, &beam_vec,
+                          nah_array_converter, &eta_vec))
+        return NULL;
 
-    /* Verify shape of input arrays */
-    dxy = PyArray_NDIM(xy_det);
-    drd = PyArray_NDIM(rMat_d);
-    drs = PyArray_NDIM(rMat_s);
-    dtd = PyArray_NDIM(tVec_d);
-    dts = PyArray_NDIM(tVec_s);
-    dtc = PyArray_NDIM(tVec_c);
-    dbv = PyArray_NDIM(beamVec);
-    dev = PyArray_NDIM(etaVec);
-    assert( dxy == 2 && drd == 2 && drs == 2 &&
-            dtd == 1 && dts == 1 && dtc == 1 &&
-            dbv == 1 && dev == 1);
-
-    /* Verify dimensions of input arrays */
-    npts = PyArray_DIMS(xy_det)[0];
-
-    assert( PyArray_DIMS(xy_det)[1]  == 2 );
-    assert( PyArray_DIMS(rMat_d)[0]  == 3 && PyArray_DIMS(rMat_d)[1] == 3 );
-    assert( PyArray_DIMS(rMat_s)[0]  == 3 && PyArray_DIMS(rMat_s)[1] == 3 );
-    assert( PyArray_DIMS(tVec_d)[0]  == 3 );
-    assert( PyArray_DIMS(tVec_s)[0]  == 3 );
-    assert( PyArray_DIMS(tVec_c)[0]  == 3 );
-    assert( PyArray_DIMS(beamVec)[0] == 3 );
-    assert( PyArray_DIMS(etaVec)[0]  == 3 );
-
-    /* Allocate arrays for return values */
-    dims[0] = npts; dims[1] = 3;
-    gVec_l = (PyArrayObject*)PyArray_EMPTY(2,dims,NPY_DOUBLE,0);
-
-    tTh    = (PyArrayObject*)PyArray_EMPTY(1,&npts,NPY_DOUBLE,0);
-    eta    = (PyArrayObject*)PyArray_EMPTY(1,&npts,NPY_DOUBLE,0);
-
-    /* Grab data pointers into various arrays */
-    xy_Ptr      = (double*)PyArray_DATA(xy_det);
-    gVec_l_Ptr  = (double*)PyArray_DATA(gVec_l);
-
-    tTh_Ptr     = (double*)PyArray_DATA(tTh);
-    eta_Ptr     = (double*)PyArray_DATA(eta);
-
-    rMat_d_Ptr  = (double*)PyArray_DATA(rMat_d);
-    rMat_s_Ptr  = (double*)PyArray_DATA(rMat_s);
-
-    tVec_d_Ptr  = (double*)PyArray_DATA(tVec_d);
-    tVec_s_Ptr  = (double*)PyArray_DATA(tVec_s);
-    tVec_c_Ptr  = (double*)PyArray_DATA(tVec_c);
-
-    beamVec_Ptr = (double*)PyArray_DATA(beamVec);
-    etaVec_Ptr  = (double*)PyArray_DATA(etaVec);
-
+    /* Allocate arrays and tuples for return values */
+    npts = PyArray_DIM(xy_det.pyarray, 0);
+    dims[0] = npts;
+    dims[1] = 3;
+    gvec_l = (PyArrayObject*)PyArray_EMPTY(2, dims, NPY_DOUBLE, 0);
+    if (!gvec_l)
+        goto fail_alloc;
+    
+    tTh    = (PyArrayObject*)PyArray_EMPTY(1, dims, NPY_DOUBLE, 0);
+    if (!tTh)
+        goto fail_alloc;
+    
+    eta    = (PyArrayObject*)PyArray_EMPTY(1, dims, NPY_DOUBLE,0);
+    if (!eta)
+        goto fail_alloc;
+    
+    inner_tuple = Py_BuildValue("OO", tTh, eta);
+    if (!inner_tuple)
+        goto fail_alloc;
+    
+    outer_tuple = Py_BuildValue("OO", inner_tuple, gvec_l);
+    if (!outer_tuple)
+        goto fail_alloc;
+    
     /* Call the computational routine */
-    xy_to_gvec(npts, xy_Ptr,
-               rMat_d_Ptr, rMat_s_Ptr,
-               tVec_d_Ptr, tVec_s_Ptr, tVec_c_Ptr,
-               beamVec_Ptr, etaVec_Ptr,
-               tTh_Ptr, eta_Ptr, gVec_l_Ptr);
+    xy_to_gvec(npts,
+               (double *)PyArray_DATA(xy_det.pyarray),
+               (double *)PyArray_DATA(rmat_d.pyarray),
+               (double *)PyArray_DATA(rmat_s.pyarray),
+               (double *)PyArray_DATA(tvec_d.pyarray),
+               (double *)PyArray_DATA(tvec_s.pyarray),
+               (double *)PyArray_DATA(tvec_c.pyarray),
+               (double *)PyArray_DATA(beam_vec.pyarray),
+               (double *)PyArray_DATA(eta_vec.pyarray),
+               (double *)PyArray_DATA(tTh),
+               (double *)PyArray_DATA(eta),
+               (double *)PyArray_DATA(gvec_l));
 
-    /* Build and return the nested data structure */
-    /* Note that Py_BuildValue with 'O' increases reference count */
-    inner_tuple = Py_BuildValue("OO",tTh,eta);
-    outer_tuple = Py_BuildValue("OO", inner_tuple, gVec_l);
-    Py_DECREF(inner_tuple);
-    Py_DECREF(tTh);
-    Py_DECREF(eta);
-    Py_DECREF(gVec_l);
+    /*
+      At this point, no allocation may fail. Release all redundant references
+      (as the outer_tuple will hold its references).
+
+      Beyond this point the cleanup after fail_alloc shouldn't, but clearing
+      the associated variables makes the code less error-prone.
+    */
+    Py_DECREF(inner_tuple); inner_tuple = NULL;
+    Py_DECREF(tTh); tTh = NULL;
+    Py_DECREF(eta); eta = NULL;
+    Py_DECREF(gvec_l); gvec_l = NULL;
+
     return outer_tuple;
+    
+ fail_alloc:
+    Py_XDECREF(outer_tuple);
+    Py_XDECREF(inner_tuple);
+    Py_XDECREF(eta);
+    Py_XDECREF(tTh);
+    Py_XDECREF(gvec_l);
+    
+    return PyErr_NoMemory();
 }
 
 #endif /* XRD_INCLUDE_PYTHON_WRAPPERS */
