@@ -784,7 +784,7 @@ python_gvecToDetectorXYArray(PyObject * self, PyObject * args)
         return(NULL);
 
     /* Verify dimensions of input arrays */
-    npts = PyArray_DIMS(gVec_c.pyarray)[0];
+    npts = PyArray_DIM(gVec_c.pyarray, 0);
 
     if (npts != PyArray_DIM(rMat_s.pyarray, 0))
     {
