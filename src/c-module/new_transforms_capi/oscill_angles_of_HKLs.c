@@ -2,6 +2,7 @@
 #if !defined(XRD_SINGLE_COMPILE_UNIT) || !XRD_SINGLE_COMPILE_UNIT
 #  include "transforms_utils.h"
 #  include "transforms_prototypes.h"
+#  include "ndargs_helper.h"
 #endif
 
 
@@ -191,83 +192,72 @@ XRD_PYTHON_WRAPPER const char *docstring_oscillAnglesOfHKLs =
 XRD_PYTHON_WRAPPER PyObject *
 python_oscillAnglesOfHKLs(PyObject * self, PyObject * args)
 {
-    PyArrayObject *hkls, *rMat_c, *bMat,
-		*vInv_s, *beamVec, *etaVec;
-    PyFloatObject *chi, *wavelength;
-    PyArrayObject *oangs0, *oangs1;
-    PyObject *return_tuple;
-
-    int dhkls, drc, dbm, dvi, dbv, dev;
-    npy_intp npts, dims[2];
-
-    double *hkls_Ptr, chi_d,
-        *rMat_c_Ptr, *bMat_Ptr, wavelen_d,
-        *vInv_s_Ptr, *beamVec_Ptr, *etaVec_Ptr;
-    double *oangs0_Ptr, *oangs1_Ptr;
-
+    nah_array hkls = { NULL, "hkls", NAH_TYPE_DP_FP, { 3, NAH_DIM_ANY }};
+    nah_array rMat_c = { NULL, "rMat_c", NAH_TYPE_DP_FP, { 3, 3 }};
+    nah_array bMat = { NULL, "bMat", NAH_TYPE_DP_FP, { 3, 3 }};
+    nah_array vInv = { NULL, "vInv", NAH_TYPE_DP_FP, { 6 }};
+    nah_array beamVec = { NULL, "beamVec", NAH_TYPE_DP_FP, { 3 }};
+    nah_array etaVec = { NULL, "etaVec", NAH_TYPE_DP_FP, { 3 }};
+    double chi, wavelen;
+    PyArrayObject *oangs0 = NULL, *oangs1 = NULL;
+    PyObject *result = NULL;
     /* Parse arguments */
-    if ( !PyArg_ParseTuple(args,"OOOOOOOO",
-                           &hkls, &chi,
-                           &rMat_c, &bMat, &wavelength,
-                           &vInv_s, &beamVec, &etaVec)) return(NULL);
-    if ( hkls    == NULL || chi == NULL ||
-         rMat_c  == NULL || bMat == NULL || wavelength == NULL ||
-         vInv_s  == NULL || beamVec == NULL || etaVec == NULL ) return(NULL);
-
-    /* Verify shape of input arrays */
-    dhkls = PyArray_NDIM(hkls);
-    drc   = PyArray_NDIM(rMat_c);
-    dbm   = PyArray_NDIM(bMat);
-    dvi   = PyArray_NDIM(vInv_s);
-    dbv   = PyArray_NDIM(beamVec);
-    dev   = PyArray_NDIM(etaVec);
-    assert( dhkls == 2 && drc == 2 && dbm == 2 &&
-            dvi   == 1 && dbv == 1 && dev == 1);
-
-    /* Verify dimensions of input arrays */
-    npts = PyArray_DIMS(hkls)[0];
-
-    assert( PyArray_DIMS(hkls)[1]    == 3 );
-    assert( PyArray_DIMS(rMat_c)[0]  == 3 && PyArray_DIMS(rMat_c)[1] == 3 );
-    assert( PyArray_DIMS(bMat)[0]    == 3 && PyArray_DIMS(bMat)[1]   == 3 );
-    assert( PyArray_DIMS(vInv_s)[0]  == 6 );
-    assert( PyArray_DIMS(beamVec)[0] == 3 );
-    assert( PyArray_DIMS(etaVec)[0]  == 3 );
+    if (!PyArg_ParseTuple(args,"O&dO&O&dO&O&O&",
+                          nah_array_converter, &hkls,
+                          &chi,
+                          nah_array_converter, &rMat_c,
+                          nah_array_converter, &bMat,
+                          &wavelen,
+                          nah_array_converter, &vInv,
+                          nah_array_converter, &beamVec,
+                          nah_array_converter, &etaVec))
+        return NULL;
 
     /* Allocate arrays for return values */
-    dims[0] = npts; dims[1] = 3;
-    oangs0 = (PyArrayObject*)PyArray_EMPTY(2,dims,NPY_DOUBLE,0);
-    oangs1 = (PyArrayObject*)PyArray_EMPTY(2,dims,NPY_DOUBLE,0);
+    oangs0 = (PyArrayObject*)PyArray_EMPTY(PyArray_NDIM(hkls.pyarray),
+                                           PyArray_SHAPE(hkls.pyarray),
+                                           NPY_DOUBLE, 0);
+    if (!oangs0)
+        goto fail_alloc;
+    
+    oangs1 = (PyArrayObject*)PyArray_EMPTY(PyArray_NDIM(hkls.pyarray),
+                                           PyArray_SHAPE(hkls.pyarray),
+                                           NPY_DOUBLE, 0);
+    if (!oangs1)
+        goto fail_alloc;
 
-    /* Grab data pointers into various arrays */
-    hkls_Ptr    = (double*)PyArray_DATA(hkls);
-
-    chi_d       = PyFloat_AsDouble((PyObject*)chi);
-    wavelen_d   = PyFloat_AsDouble((PyObject*)wavelength);
-
-    rMat_c_Ptr  = (double*)PyArray_DATA(rMat_c);
-    bMat_Ptr    = (double*)PyArray_DATA(bMat);
-
-    vInv_s_Ptr  = (double*)PyArray_DATA(vInv_s);
-
-    beamVec_Ptr = (double*)PyArray_DATA(beamVec);
-    etaVec_Ptr  = (double*)PyArray_DATA(etaVec);
-
-    oangs0_Ptr  = (double*)PyArray_DATA(oangs0);
-    oangs1_Ptr  = (double*)PyArray_DATA(oangs1);
+    /* result is actually a tuple of oangs0 and oangs1 */
+    result = Py_BuildValue("OO", oangs0, oangs1);
+    if (!result)
+        goto fail_alloc;
+    
 
     /* Call the computational routine */
-    oscill_angles_of_HKLs(npts, hkls_Ptr, chi_d,
-                          rMat_c_Ptr, bMat_Ptr, wavelen_d,
-                          vInv_s_Ptr, beamVec_Ptr, etaVec_Ptr,
-                          oangs0_Ptr, oangs1_Ptr);
+    oscill_angles_of_HKLs(PyArray_DIM(hkls.pyarray, 0),
+                          (double *)PyArray_DATA(hkls.pyarray),
+                          chi,
+                          (double *)PyArray_DATA(rMat_c.pyarray),
+                          (double *)PyArray_DATA(bMat.pyarray),
+                          wavelen,
+                          (double *)PyArray_DATA(vInv.pyarray),
+                          (double *)PyArray_DATA(beamVec.pyarray),
+                          (double *)PyArray_DATA(etaVec.pyarray),
+                          (double *)PyArray_DATA(oangs0),
+                          (double *)PyArray_DATA(oangs1));
 
-    /* Build and return the list data structure */
-    return_tuple = Py_BuildValue("OO",oangs0,oangs1);
-    Py_DECREF(oangs1);
-    Py_DECREF(oangs0);
+    /* release the internal references to the arrays, set the
+       pointers to NULL just for sanity */
+    Py_DECREF(oangs1); oangs1 = NULL;
+    Py_DECREF(oangs0); oangs0 = NULL;
 
-    return return_tuple;
+    return result;
+    
+ fail_alloc:
+    Py_XDECREF(result);
+    Py_XDECREF(oangs0);
+    Py_XDECREF(oangs1);
+    
+    return PyErr_NoMemory();
 }
 
 #endif /* XRD_INCLUDE_PYTHON_WRAPPERS */
