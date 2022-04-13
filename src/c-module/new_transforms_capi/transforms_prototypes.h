@@ -47,7 +47,10 @@ make_detector_rmat(double *tPtr, double *rPtr);
 */
 
 XRD_CFUNCTION void
-make_sample_rmat(double chi, double ome, double *rPtr); /* aka make_oscill_rotmat */
+make_sample_rmat(double chi, const double ome, double *result_rmat);
+
+XRD_CFUNCTION void
+make_sample_rmat_array(double chi, const double *ome_ptr, size_t ome_count, double *result_ptr);
 
 XRD_CFUNCTION void
 make_rmat_of_expmap(double *ePtr, double *rPtr);

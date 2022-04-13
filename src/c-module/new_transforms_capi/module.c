@@ -99,7 +99,6 @@ static PyMethodDef _module_methods[] = {
     EXPORT_METHOD(unitRowVector), /* unit_vector */
     EXPORT_METHOD(unitRowVectors), /* unit_vector */
     EXPORT_METHOD(makeOscillRotMat), /* make_sample_rmat */
-    EXPORT_METHOD(makeOscillRotMatArray), /* make_sample_rmat */
     EXPORT_METHOD(makeRotMatOfExpMap), /* make_rmat_of_expmap */
     EXPORT_METHOD(makeBinaryRotMat), /* make_binary_rmat */
     EXPORT_METHOD(makeEtaFrameRotMat), /* make_beam_rmat */

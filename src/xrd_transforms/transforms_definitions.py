@@ -265,7 +265,7 @@ class DEF_solve_omega(DEF_Func):
         The shape when cast as a 2-d ndarray is (n, 3), representing n vectors.
     chi : float
         The inclination angle of the goniometer axis (standard coords)
-    rmat_c : array_like
+    Rmat_c : array_like
         (3, 3) COB matrix taking components in the
         CRYSTAL FRAME to the SAMPLE FRAME
     wavelength : float
@@ -400,7 +400,20 @@ class DEF_make_sample_rmat(DEF_Func):
 
     [0., cos(chi), sin(chi)]
 
-    in the lab frame
+    in the LAB frame.
+
+    Parameters
+    ----------
+    chi : float
+        The inclination angle of the goniometer axis (standard coords)
+    ome : array_like
+        (n) angles to generate rotation matrices from.
+
+    Returns
+    -------
+    array_like
+        (n, 3, 3) a vector of the n rotation matrices along the
+        axis defined by chi, one for each ome.
     """
     def _signature(chi, ome):
         pass
