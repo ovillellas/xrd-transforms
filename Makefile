@@ -13,4 +13,4 @@ test: install
 	python -m pytest -v
 
 test-dev: install
-	python -m pytest -v test_xrd_transforms/test_newcapi_xy_to_gvec.py
+	python -m pytest -v test_xrd_transforms/test_newcapi_oscill_angles_of_hkls.py
