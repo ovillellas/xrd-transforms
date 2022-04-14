@@ -41,7 +41,7 @@ def angles_to_gvec(
     # so that behavior is preserved.
     if angs.shape[-1] == 2:
         angs = np.hstack((angs, np.zeros(angs.shape[:-1]+(1,))))
-        
+
     angs = np.ascontiguousarray( np.atleast_2d(angs) )
     beam_vec = beam_vec if beam_vec is not None else cnst.beam_vec
     beam_vec = np.ascontiguousarray( beam_vec.flatten() )
@@ -57,13 +57,13 @@ def angles_to_gvec(
 
 @xf_api
 def angles_to_dvec(
-        angs, 
+        angs,
         beam_vec=None, eta_vec=None,
         chi=None, rmat_c=None):
     # TODO: Improve capi to avoid multiplications when rmat_c is None
     beam_vec = beam_vec if beam_vec is not None else cnst.beam_vec
     eta_vec = eta_vec if eta_vec is not None else cnst.eta_vec
-    
+
     angs = np.ascontiguousarray( np.atleast_2d(angs) )
     beam_vec = np.ascontiguousarray( beam_vec.flatten() )
     eta_vec = np.ascontiguousarray( eta_vec.flatten() )
@@ -121,7 +121,7 @@ def xy_to_gvec(xy_d,
                output_ref=False):
     # in the C library beam vector and eta vector are expected. However we receive
     # rmat_b. Please check this!
-    # 
+    #
     # It also seems that the output_ref version is not present as the argument gets
     # ignored
 
@@ -189,15 +189,32 @@ def makeDetectorRotMat(tiltAngles):
 
 #@xf_api
 def makeOscillRotMat(oscillAngles):
-    arg = np.ascontiguousarray(np.r_[oscillAngles].flatten())
-    return _impl.makeOscillRotMat(arg)
+    chi, ome = oscillAngles
+    ome = np.atleast1d(ome)
+    result = _impl.makeOscillRotMat(chi, ome)
+    return result.reshape((3, 3))
 
 
 #@xf_api
 def makeOscillRotMatArray(chi, omeArray):
     arg = np.ascontiguousarray(omeArray)
-    return _impl.makeOscillRotMatArray(chi, arg)
+    return _impl.makeOscillRotMat(chi, arg)
 
+
+@xf_api
+def make_sample_rmat(chi, ome):
+    ome_array = np.atleast_1d(ome)
+    if ome is ome_array:
+        ome_array = np.ascontiguousarray(ome_array)
+        result = _impl.makeOscillRotMat(chi, ome_array)
+    else:
+        # converted to 1d array of 1 element, no need
+        # to call ascontiguousarray, but need to remove
+        # the outer dimension from the result
+        result = _impl.makeOscillRotMat(chi, ome_array)
+        result = result.reshape(3,3)
+
+    return result
 
 @xf_api
 def make_rmat_of_expmap(exp_map):
@@ -240,5 +257,3 @@ def quat_distance(q1, q2, qsym):
     q1 = np.ascontiguousarray(q1.flatten())
     q2 = np.ascontiguousarray(q2.flatten())
     return _impl.quat_distance(q1, q2, qsym)
-
-

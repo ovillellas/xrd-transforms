@@ -603,8 +603,8 @@ def make_sample_rmat(chi, ome):
             [np.dot(rchi, make_rmat_of_expmap(i*cnst.lab_y)) for i in ome]
         )
     else:
-        come = np.cos(ome)
-        some = np.sin(ome)
+        come = np.cos(ome[0])
+        some = np.sin(ome[0])
         rome = np.array([[come, 0., some],
                          [0., 1., 0.],
                          [-some, 0., come]], dtype = np.double)
