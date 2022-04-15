@@ -2,6 +2,7 @@
 #if !defined(XRD_SINGLE_COMPILE_UNIT) || !XRD_SINGLE_COMPILE_UNIT
 #  include "transforms_utils.h"
 #  include "transforms_prototypes.h"
+#  include "ndargs_helper.h"
 #endif
 
 
@@ -49,35 +50,30 @@ XRD_PYTHON_WRAPPER const char *docstring_makeRotMatOfExpMap =
 XRD_PYTHON_WRAPPER PyObject *
 python_makeRotMatOfExpMap(PyObject * self, PyObject * args)
 {
-    PyArrayObject *expMap, *rMat;
-    int de;
-    npy_intp ne, dims[2];
-    double *ePtr, *rPtr;
+    nah_array exp_map = { NULL, "exp_map", NAH_TYPE_DP_FP, { 3 }};
+    PyArrayObject *result = NULL;
+    npy_intp dims[2] = { 3, 3 };
 
     /* Parse arguments */
-    if ( !PyArg_ParseTuple(args,"O", &expMap)) return(NULL);
-    if ( expMap == NULL ) return(NULL);
-
-    /* Verify shape of input arrays */
-    de = PyArray_NDIM(expMap);
-    assert( de == 1 );
-
-    /* Verify dimensions of input arrays */
-    ne = PyArray_DIMS(expMap)[0];
-    assert( ne == 3 );
+    if (!PyArg_ParseTuple(args, "O&",
+                          nah_array_converter, &exp_map))
+        return NULL;
 
     /* Allocate the result matrix with appropriate dimensions and type */
-    dims[0] = 3; dims[1] = 3;
-    rMat = (PyArrayObject*)PyArray_EMPTY(2,dims,NPY_DOUBLE,0);
-
-    /* Grab pointers to the various data arrays */
-    ePtr = (double*)PyArray_DATA(expMap);
-    rPtr = (double*)PyArray_DATA(rMat);
+    result = (PyArrayObject*)PyArray_EMPTY(2, dims, NPY_DOUBLE, 0);
+    if (NULL == result)
+        goto fail_alloc;
 
     /* Call the actual function */
-    make_rmat_of_expmap(ePtr,rPtr);
+    make_rmat_of_expmap(PyArray_DATA(exp_map.pyarray),
+                        PyArray_DATA(result));
 
-    return((PyObject*)rMat);
+    return (PyObject *)result;
+                        
+ fail_alloc:
+    Py_XDECREF(result);
+
+    return PyErr_NoMemory();
 }
 
 #endif /* XRD_INCLUDE_PYTHON_WRAPPERS */

@@ -422,6 +422,16 @@ class DEF_make_sample_rmat(DEF_Func):
 class DEF_make_rmat_of_expmap(DEF_Func):
     """
     Calculates the rotation matrix from an exponential map
+
+    Parameters
+    ----------
+    exp_map: array_like
+        (3,) exp_map to generate the rotation matrix from.
+
+    Returns
+    -------
+    array_like
+        (3,3) the associated rotation matrix
     """
     def _signature(exp_map):
         pass
