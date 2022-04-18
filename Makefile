@@ -13,4 +13,4 @@ test: install
 	python -m pytest -v
 
 test-dev: install
-	python -m pytest -v test_xrd_transforms/test_newcapi_make_rmat_of_expmap.py
+	python -m pytest -v test_xrd_transforms/test_newcapi_make_binary_rmat.py

@@ -442,6 +442,16 @@ class DEF_make_binary_rmat(DEF_Func):
     make a binary rotation matrix about the specified axis
 
     Used to compute the refracted vector wrt the axis.
+
+    Parameters
+    ----------
+    Axis: array_like
+        (3,) axis to use to generate the rotation matrix
+
+    Returns
+    -------
+    array_like
+        (3, 3) the resulting rotation matrix 
     """
     def _signature(axis):
         pass

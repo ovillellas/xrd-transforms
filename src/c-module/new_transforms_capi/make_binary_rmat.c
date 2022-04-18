@@ -26,6 +26,7 @@ make_binary_rmat(const double *aPtr, double * restrict rPtr)
 
 #    include <Python.h>
 #    include <numpy/arrayobject.h>
+#    include "ndargs_helper.h"
 #  endif /* XRD_SINGLE_COMPILE_UNIT */
 
 XRD_PYTHON_WRAPPER const char *docstring_makeBinaryRotMat =
@@ -35,35 +36,30 @@ XRD_PYTHON_WRAPPER const char *docstring_makeBinaryRotMat =
 XRD_PYTHON_WRAPPER PyObject *
 python_makeBinaryRotMat(PyObject * self, PyObject * args)
 {
-    PyArrayObject *axis, *rMat;
-    int da;
-    npy_intp na, dims[2];
-    double *aPtr, *rPtr;
+    nah_array axis = { NULL, "axis", NAH_TYPE_DP_FP, { 3 }};
+    PyArrayObject *result = NULL;
+    npy_intp dims[2] = { 3, 3 };
 
     /* Parse arguments */
-    if ( !PyArg_ParseTuple(args,"O", &axis)) return(NULL);
-    if ( axis  == NULL ) return(NULL);
-
-    /* Verify shape of input arrays */
-    da = PyArray_NDIM(axis);
-    assert( da == 1 );
-
-    /* Verify dimensions of input arrays */
-    na = PyArray_DIMS(axis)[0];
-    assert( na == 3 );
+    if (!PyArg_ParseTuple(args, "O&",
+                          nah_array_converter, &axis))
+        return NULL;
 
     /* Allocate the result matrix with appropriate dimensions and type */
-    dims[0] = 3; dims[1] = 3;
-    rMat = (PyArrayObject*)PyArray_EMPTY(2,dims,NPY_DOUBLE,0);
-
-    /* Grab pointers to the various data arrays */
-    aPtr = (double*)PyArray_DATA(axis);
-    rPtr = (double*)PyArray_DATA(rMat);
-
+    result = (PyArrayObject*)PyArray_EMPTY(2, dims, NPY_DOUBLE, 0);
+    if (NULL == result)
+        goto fail_alloc;
+    
     /* Call the actual function */
-    make_binary_rmat(aPtr,rPtr);
+    make_binary_rmat((double *)PyArray_DATA(axis.pyarray),
+                     (double *)PyArray_DATA(result));
 
-    return((PyObject*)rMat);
+    return (PyObject*)result;
+
+ fail_alloc:
+    Py_XDECREF(result);
+
+    return PyErr_NoMemory();
 }
 
 #endif /* XRD_INCLUDE_PYTHON_WRAPPERS */
