@@ -224,8 +224,6 @@ def make_rmat_of_expmap(exp_map):
 
 @xf_api
 def make_binary_rmat(axis):
-    if axis.shape != (3,):
-        raise ValueError('Axis input does not have 3 components')
     arg = np.ascontiguousarray(axis.flatten())
     return _impl.makeBinaryRotMat(arg)
 
