@@ -85,6 +85,7 @@ validate_angle_ranges(size_t na, double *aPtr, size_t nr, double *minPtr,
 
 #    include <Python.h>
 #    include <numpy/arrayobject.h>
+#    include "ndargs_helper.h"
 #  endif /* XRD_SINGLE_COMPILE_UNIT */
 
 XRD_PYTHON_WRAPPER const char *docstring_validateAngleRanges =
@@ -94,50 +95,55 @@ XRD_PYTHON_WRAPPER const char *docstring_validateAngleRanges =
 XRD_PYTHON_WRAPPER PyObject *
 python_validateAngleRanges(PyObject * self, PyObject * args)
 {
-  PyArrayObject *angList, *angMin, *angMax, *reflInRange;
-  PyObject *ccw;
-  int ccwVal = 1; /* ccwVal set to True by default */
-  int da, dmin, dmax;
-  npy_intp na, nmin, nmax;
-  double *aPtr, *minPtr, *maxPtr;
-  bool *rPtr;
+    nah_array ang_list = { NULL, "ang_list", NAH_TYPE_DP_FP, { NAH_DIM_ANY }};
+    nah_array start_ang = { NULL, "start_ang", NAH_TYPE_DP_FP, { NAH_DIM_ANY }};
+    nah_array stop_ang = { NULL, "stop_ang", NAH_TYPE_DP_FP, { NAH_DIM_ANY }};
+    int ccw = 1;
+    PyArrayObject *result = NULL;;
 
-  /* Parse arguments */
-  if ( !PyArg_ParseTuple(args,"OOOO", &angList,&angMin,&angMax,&ccw)) return(NULL);
-  if ( angList == NULL || angMin == NULL || angMax == NULL ) return(NULL);
+    /* Parse arguments */
+    if (!PyArg_ParseTuple(args,"O&O&O&|p",
+                          nah_array_converter, &ang_list,
+                          nah_array_converter, &start_ang,
+                          nah_array_converter, &stop_ang,
+                          &ccw))
+        return NULL;
 
-  /* Verify shape of input arrays */
-  da   = PyArray_NDIM(angList);
-  dmin = PyArray_NDIM(angMin);
-  dmax = PyArray_NDIM(angMax);
-  assert( da == 1 && dmin == 1 && dmax ==1 );
+    /* Verify that start_ang and stop ang have the same length */
+    if (PyArray_DIM(start_ang.pyarray, 0) != PyArray_DIM(stop_ang.pyarray, 0))
+        goto fail_start_stop_mismatch;
 
-  /* Verify dimensions of input arrays */
-  na   = PyArray_DIMS(angList)[0];
-  nmin = PyArray_DIMS(angMin)[0];
-  nmax = PyArray_DIMS(angMax)[0];
-  assert( nmin == nmax );
+    /* Allocate the result matrix with appropriate dimensions and type */
+    result = (PyArrayObject*)PyArray_EMPTY(PyArray_NDIM(ang_list.pyarray),
+                                           PyArray_SHAPE(ang_list.pyarray),
+                                           NPY_BOOL, false);
+    if (NULL == result)
+        goto fail_alloc;
 
-  /* Check the value of ccw */
-  if ( ccw == Py_True )
-    ccwVal = 1;
-  else
-    ccwVal = 0;
 
-  /* Allocate the result matrix with appropriate dimensions and type */
-  reflInRange = (PyArrayObject*)PyArray_EMPTY(1,PyArray_DIMS(angList),NPY_BOOL,false);
-  assert( reflInRange != NULL );
+    /* Call the actual function */
+    validate_angle_ranges(PyArray_DIM(ang_list.pyarray, 0),
+                          (double *)PyArray_DATA(ang_list.pyarray),
+                          PyArray_DIM(start_ang.pyarray,0),
+                          (double *)PyArray_DATA(start_ang.pyarray),
+                          (double *)PyArray_DATA(stop_ang.pyarray),
+                          (bool*)PyArray_DATA(result),
+                          ccw);
 
-  /* Grab pointers to the various data arrays */
-  aPtr   = (double*)PyArray_DATA(angList);
-  minPtr = (double*)PyArray_DATA(angMin);
-  maxPtr = (double*)PyArray_DATA(angMax);
-  rPtr   = (bool*)PyArray_DATA(reflInRange);
+    return (PyObject*)result;
 
-  /* Call the actual function */
-  validate_angle_ranges(na,aPtr,nmin,minPtr,maxPtr,rPtr,ccwVal);
-
-  return((PyObject*)reflInRange);
+ fail_start_stop_mismatch:
+  PyErr_Format(PyExc_RuntimeError, "'%s' and '%s' must have the same length.",
+               start_ang.name, stop_ang.name);
+  goto release_objs;
+  
+ fail_alloc:
+  PyErr_NoMemory();
+  goto release_objs;
+  
+ release_objs:
+  Py_XDECREF(result);
+  return NULL;
 }
 
 #endif /* XRD_INCLUDE_PYTHON_WRAPPERS */

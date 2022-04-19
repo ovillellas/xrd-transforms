@@ -462,6 +462,18 @@ class DEF_make_beam_rmat(DEF_Func):
     make eta basis COB matrix with beam antiparallel with Z
 
     takes components from BEAM frame to LAB
+
+    Parameters
+    ----------
+    bvec_l: array_like
+        (3,) inciding beam vector in LAB frame
+    evec_l: array_like
+        (3,) eta vector to form the COB matrix
+
+    Returns
+    -------
+    array
+        (3, 3) the resulting COB matrix
     """
     def _signature(bvec_l, evec_l):
         pass
@@ -482,11 +494,40 @@ class DEF_angles_in_range(DEF_Func):
 
 
 class DEF_validate_angle_ranges(DEF_Func):
-    """
-    A better way to go.  find out if an angle is in the range
-    CCW or CW from start to stop
-    There is, of course, an ambigutiy if the start and stop angle are
-    the same; we treat them as implying 2*pi having been mapped
+    """Determine whether angles lie in or out of a set of ranges.
+
+    Parameters
+    ----------
+    ang_list: array_like
+        (n,) angles to check
+    start_angs: array_like
+        (m,) start of the angle spans to check
+    stop_angs: array_like
+        (m,) end of the angle spans to check
+    ccw: boolean
+        True if the check is to be performed counter-clockwise. False to check
+        clockwise
+
+    Returns
+    -------
+    array_like
+        (n,) array of booleans indicating the angles that pass
+             the test.
+
+    Notes
+    -----
+
+    Each angle is checked against all the angle spans. The angles are normalized
+    into the [-pi,pi[ range. As start/stop in a circunference actually defines
+    two ranges, the ccw flag is used to choose which one to use.
+
+    For example, a range [0, pi[ would include 0.5*pi if using
+    counter-clockwise, but not when using clockwise. In the same
+    way, -0.5*pi would be included when using clockwise, but will not when using
+    counter-clockwise.
+
+    In the case that start and end have the same value, it is considered that
+    all the angles are included.
     """
     def _signature(ang_list, start_angs, stop_angs, ccw=True):
         pass
