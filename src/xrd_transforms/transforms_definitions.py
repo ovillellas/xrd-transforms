@@ -510,7 +510,7 @@ class DEF_validate_angle_ranges(DEF_Func):
 
     Returns
     -------
-    array_like
+    array
         (n,) array of booleans indicating the angles that pass
              the test.
 
@@ -537,10 +537,25 @@ class DEF_rotate_vecs_about_axis(DEF_Func):
     """
     Rotate vectors about an axis
 
-    INPUTS
-    *angle* - array of angles (len == 1 or n)
-    *axis*  - array of unit vectors (shape == (3, 1) or (3, n))
-    *vec*   - array of vectors to be rotated (shape = (3, n))
+    Parameters
+    ----------
+    angle: array_like
+        ([n,]) angle(s) to rotate.
+    axis: array_like
+        ([n,] 3) normalized vector(s) to rotate about.
+    vecs: array_like
+        (n, 3) vector(s) to rotate.
+
+    Returns
+    -------
+    array
+        rotated vectors.
+
+    Notes
+    -----       
+    Operations are made one by one. The [n,] dimension, if present,
+    must match for all arguments using it.
+
 
     Quaternion formula:
     if we split v into parallel and perpedicular components w.r.t. the

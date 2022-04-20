@@ -13,4 +13,4 @@ test: install
 	python -m pytest -v
 
 test-dev: install
-	python -m pytest -v test_xrd_transforms/test_newcapi_validate_angle_ranges.py
+	python -m pytest -v test_xrd_transforms/test_newcapi_rotate_vecs_about_axis.py

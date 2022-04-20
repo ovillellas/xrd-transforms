@@ -19,16 +19,11 @@ rotate_vecs_about_axis(size_t na, double *angles,
     if ( nax == 1 ) sax = 0;
     else sax = 3;
 
-    for (i=0; i<nv; i++) {
-
+    for (i=0; i<nv; i++)
+    {
         /* Rotate using the Rodrigues' Rotation Formula */
         c = cos(angles[sa*i]);
         s = sin(angles[sa*i]);
-
-        /* Compute projection of vec along axis */
-        proj = 0.0;
-        for (j=0; j<3; j++)
-            proj += axes[sax*i+j]*vecs[3*i+j];
 
         /* Compute norm of axis */
         if ( nax > 1 || i == 0 ) {
@@ -41,14 +36,19 @@ rotate_vecs_about_axis(size_t na, double *angles,
         /* Compute projection of vec along axis */
         proj = 0.0;
         for (j=0; j<3; j++)
+        {
             proj += axes[sax*i+j]*vecs[3*i+j];
+        }
 
         /* Compute the cross product of the axis with vec */
         for (j=0; j<3; j++)
+        {  
             aCrossV[j] = axes[sax*i+(j+1)%3]*vecs[3*i+(j+2)%3]-axes[sax*i+(j+2)%3]*vecs[3*i+(j+1)%3];
-
+        }
+        
         /* Combine the three terms to compute the rotated vector */
-        for (j=0; j<3; j++) {
+        for (j=0; j<3; j++)
+        {
             rVecs[3*i+j] = c*vecs[3*i+j]+(s/nrm)*aCrossV[j]+(1.0-c)*proj*axes[sax*i+j]/(nrm*nrm);
         }
     }
@@ -62,6 +62,7 @@ rotate_vecs_about_axis(size_t na, double *angles,
 
 #    include <Python.h>
 #    include <numpy/arrayobject.h>
+#    include "ndargs_helper.h"
 #  endif /* XRD_SINGLE_COMPILE_UNIT */
 
 XRD_PYTHON_WRAPPER const char *docstring_rotate_vecs_about_axis =
@@ -69,49 +70,74 @@ XRD_PYTHON_WRAPPER const char *docstring_rotate_vecs_about_axis =
     "Please use the Python wrapper.\n";
 
 XRD_PYTHON_WRAPPER PyObject *
-python_rotate_vecs_about_axis(PyObject * self, PyObject * args)
+python_rotate_vecs_about_axis(PyObject *self, PyObject *args)
 {
-    PyArrayObject *angles, *axes, *vecs;
-    PyArrayObject *rVecs;
-    int da, dax, dv;
-    npy_intp na, nax0, nax1, nv0, nv1;
-    double *aPtr, *axesPtr, *vecsPtr;
-    double *rPtr;
+    /* API interface in Python is:
+       angles, axis, vec
 
+       return a vector with the rotated vectors
+    */
+    nah_array angles = { NULL, "angles", NAH_TYPE_DP_FP, { NAH_DIM_OPT }};
+    nah_array axis = { NULL, "axis", NAH_TYPE_DP_FP, { 3, NAH_DIM_OPT }};
+    nah_array vecs = { NULL, "vecs", NAH_TYPE_DP_FP, { 3, NAH_DIM_ANY }};
+    PyArrayObject *result = NULL;
+    size_t nangs, naxis, nvecs;
     /* Parse arguments */
-    if ( !PyArg_ParseTuple(args,"OOO", &angles,&axes,&vecs)) return(NULL);
-    if ( angles == NULL || axes == NULL || vecs == NULL ) return(NULL);
+    if (!PyArg_ParseTuple(args,"O&O&O&",
+                          nah_array_converter, &angles,
+                          nah_array_converter, &axis,
+                          nah_array_converter, &vecs))
+        return NULL;
 
-    /* Verify shape of input arrays */
-    da  = PyArray_NDIM(angles);
-    dax = PyArray_NDIM(axes);
-    dv  = PyArray_NDIM(vecs);
-    assert( da == 1 && dax == 2 && dv == 2 );
+    /* check that (n) in angles and axis is the same as in vecs, if present */
+    nangs = angles.dims[0];
+    naxis = axis.dims[1];
+    nvecs = vecs.dims[1];
+    if ((nangs && nangs != nvecs) ||
+        (naxis && naxis != nvecs))
+        goto fail_dimensions;
 
-    /* Verify dimensions of input arrays */
-    na   = PyArray_DIMS(angles)[0];
-    nax0 = PyArray_DIMS(axes)[0];
-    nax1 = PyArray_DIMS(axes)[1];
-    nv0  = PyArray_DIMS(vecs)[0];
-    nv1  = PyArray_DIMS(vecs)[1];
-    assert( na == 1   || na == nv0 );
-    assert( nax0 == 1 || nax0 == nv0 );
-    assert( nax1 == 3 && nv1 == 3 );
-
-    /* Allocate the result vectors with appropriate dimensions and type */
-    rVecs = (PyArrayObject*)PyArray_EMPTY(2,PyArray_DIMS(vecs),NPY_DOUBLE,0.0);
-    assert( rVecs != NULL );
-
-    /* Grab pointers to the various data arrays */
-    aPtr    = (double*)PyArray_DATA(angles);
-    axesPtr = (double*)PyArray_DATA(axes);
-    vecsPtr = (double*)PyArray_DATA(vecs);
-    rPtr    = (double*)PyArray_DATA(rVecs);
+    nangs = nangs?nangs:1;
+    naxis = naxis?naxis:1;
+    /*
+      Allocate array for the result vectors. Its shape should be the same as
+      vecs shape.
+    */
+    result = (PyArrayObject*)PyArray_EMPTY(PyArray_NDIM(vecs.pyarray),
+                                           PyArray_SHAPE(vecs.pyarray),
+                                           NPY_DOUBLE, 0); 
+    if (NULL == result)
+        goto fail_alloc;
 
     /* Call the actual function */
-    rotate_vecs_about_axis(na,aPtr,nax0,axesPtr,nv0,vecsPtr,rPtr);
+    
+    rotate_vecs_about_axis(nangs, (double *)PyArray_DATA(angles.pyarray),
+                           naxis, (double *)PyArray_DATA(axis.pyarray),
+                           nvecs, (double *)PyArray_DATA(vecs.pyarray),
+                           (double *)PyArray_DATA(result));
 
-    return((PyObject*)rVecs);
+    
+    return (PyObject*)result;
+
+ fail_dimensions:
+    PyErr_Format(PyExc_ValueError,
+                 "'%s', '%s', '%s' have mismatching dimensions",
+                 angles.name, axis.name, vecs.name);
+    goto fail;
+
+ fail_alloc:
+    PyErr_NoMemory();
+    goto fail;
+
+ fail:
+    /* 
+       Failure clean up. At this point the proper error should be already raised
+       so just release any allocated resource and return 0 so that the exception
+       is handled
+    */
+    Py_XDECREF(result);
+
+    return 0;
 }
 
 #endif /* XRD_INCLUDE_PYTHON_WRAPPERS */
