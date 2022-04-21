@@ -773,6 +773,12 @@ def validate_angle_ranges(ang_list, start_angs, stop_angs, ccw=True):
 @xf_api
 def rotate_vecs_about_axis(angle, axis, vecs):
     angle = np.atleast_1d(angle)
+    axis = axis if axis.ndim > 1 else axis[:,np.newaxis]
+
+    assert vecs.shape[0] == 3 and vecs.ndim == 2
+    assert angle.shape[0] == 1 or angle.shape[0] == vecs.shape[-1]
+    assert axis.shape == (3,1) or axis.shape == vecs.shape
+    
     # nvecs = vecs.shape[1]  # assume column vecs
 
     # quaternion components

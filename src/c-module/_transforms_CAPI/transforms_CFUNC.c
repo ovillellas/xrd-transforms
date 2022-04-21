@@ -894,51 +894,48 @@ void validateAngleRanges_cfunc(int na, double * aPtr, int nr,
 }
 
 void rotate_vecs_about_axis_cfunc(long int na, double * angles,
-				  long int nax, double * axes,
-				  long int nv, double * vecs,
-				  double * rVecs)
+                                  long int nax, double * axes,
+                                  long int nv, double * vecs,
+                                  double * rVecs)
 {
-  int i, j, sa, sax;
-  double c, s, nrm, proj, aCrossV[3];
+    int i, j, sa, sax;
+    double c, s, nrm, proj, aCrossV[3];
 
-  if ( na == 1 ) sa = 0;
-  else sa = 1;
-  if ( nax == 1 ) sax = 0;
-  else sax = 3;
+    if ( na == 1 ) sa = 0;
+    else sa = 1;
+    if ( nax == 1 ) sax = 0;
+    else sax = 3;
 
-  for (i=0; i<nv; i++) {
+    for (i=0; i<nv; i++) {
 
-    /* Rotate using the Rodrigues' Rotation Formula */
-    c = cos(angles[sa*i]);
-    s = sin(angles[sa*i]);
+        /* Rotate using the Rodrigues' Rotation Formula */
+        c = cos(angles[sa*i]);
+        s = sin(angles[sa*i]);
 
-    /* Compute projection of vec along axis */
-    proj = 0.0;
-    for (j=0; j<3; j++)
-      proj += axes[sax*i+j]*vecs[3*i+j];
+        /* Compute norm of axis */
+        if ( nax > 1 || i == 0 ) {
+            nrm = 0.0;
+            for (j=0; j<3; j++)
+                nrm += axes[sax*i+j]*axes[sax*i+j];
+            nrm = sqrt(nrm);
+        }
 
-    /* Compute norm of axis */
-    if ( nax > 1 || i == 0 ) {
-      nrm = 0.0;
-      for (j=0; j<3; j++)
-	nrm += axes[sax*i+j]*axes[sax*i+j];
-      nrm = sqrt(nrm);
+        /* Compute projection of vec along axis */
+        proj = 0.0;
+        for (j=0; j<3; j++)
+            proj += axes[sax*i+j]*vecs[3*i+j];
+
+        /* Compute the cross product of the axis with vec */
+        for (j=0; j<3; j++)
+            aCrossV[j] = axes[sax*i+(j+1)%3]*vecs[3*i+(j+2)%3]-axes[sax*i+(j+2)%3]*vecs[3*i+(j+1)%3];
+
+        /* Combine the three terms to compute the rotated vector */
+        for (j=0; j<3; j++) {
+            rVecs[3*i+j] = c*vecs[3*i+j] +
+                           s*aCrossV[j]/nrm +
+                           (1.0-c)*proj*axes[sax*i+j]/(nrm*nrm);
+        }
     }
-
-    /* Compute projection of vec along axis */
-    proj = 0.0;
-    for (j=0; j<3; j++)
-      proj += axes[sax*i+j]*vecs[3*i+j];
-
-    /* Compute the cross product of the axis with vec */
-    for (j=0; j<3; j++)
-      aCrossV[j] = axes[sax*i+(j+1)%3]*vecs[3*i+(j+2)%3]-axes[sax*i+(j+2)%3]*vecs[3*i+(j+1)%3];
-
-    /* Combine the three terms to compute the rotated vector */
-    for (j=0; j<3; j++) {
-      rVecs[3*i+j] = c*vecs[3*i+j]+(s/nrm)*aCrossV[j]+(1.0-c)*proj*axes[sax*i+j]/(nrm*nrm);
-    }
-  }
 }
 
 double quat_distance_cfunc(int nsym, double * q1, double * q2, double * qsym)

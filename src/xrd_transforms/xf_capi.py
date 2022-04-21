@@ -233,8 +233,11 @@ def validate_angle_ranges(ang_list, start_angs, stop_angs, ccw=True):
 
 @xf_api
 def rotate_vecs_about_axis(angle, axis, vecs):
-    # TODO: arguments may need preparation.
-    return _impl.rotate_vecs_about_axis(angle, axis, vecs)
+    angle = np.ascontiguousarray(np.atleast_1d(angle))
+    axis = np.ascontiguousarray(np.atleast_2d(axis.T))
+    vecs = np.ascontiguousarray(np.atleast_2d(vecs.T))
+    result = _impl.rotate_vecs_about_axis(angle, axis, vecs)
+    return result.T
 
 
 @xf_api

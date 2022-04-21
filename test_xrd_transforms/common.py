@@ -14,7 +14,7 @@ import numpy as np
 import xrd_transforms as xf
 from xrd_transforms import constants as xf_cnst
 
-def function_implementations(api_func_name):
+def function_implementations(api_func_name, exclude=None):
     """returns a list of pairs (function, implementation_name) for all
     implementations of the API function.
 
@@ -22,11 +22,15 @@ def function_implementations(api_func_name):
     
     assert api_func_name in xf.API
 
+    exclude = set() if exclude is None else set(exclude)
+    
     impls = [(getattr(xf, api_func_name), 'default')]
     for name, module in xf.implementations.items():
         impl = getattr(module, api_func_name, None)
-        if impl is not None:
+        if impl is not None and impl not in exclude:
             impls.append((impl, name))
+        else:
+            print('skipped {impl}')
     
     return impls
 

@@ -34,6 +34,7 @@ _default_implementations = { function: getattr(numpy, function)
                              for function in API }
 
 # overrides can go here.
+_default_implementations['rotate_vecs_about_axis'] = new_capi.rotate_vecs_about_axis
 globals().update(_default_implementations)
 del _default_implementations
 
