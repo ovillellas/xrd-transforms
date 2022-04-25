@@ -494,7 +494,8 @@ class DEF_angles_in_range(DEF_Func):
 
 
 class DEF_validate_angle_ranges(DEF_Func):
-    """Determine whether angles lie in or out of a set of ranges.
+    """
+    Determine whether angles lie in or out of a set of ranges.
 
     Parameters
     ----------
@@ -605,7 +606,33 @@ class DEF_quat_product_matrix(DEF_Func):
 
 class DEF_quat_distance(DEF_Func):
     """
-    find the distance between two unit quaternions under symmetry group
+    Find the distance between two unit quaternions under symmetry group.
+
+    Parameters
+    ----------
+    q1: array_like
+        (4,) first quaternion for distance computation
+    q2: array_like
+        (4,) second quaternion for distance computation
+    qsym: array_like
+        (4, N) quaternions defining the N symmetries to compute distances
+    
+    Returns
+    -------
+    double
+        the resulting distance of the quaternions
+
+    Notes
+    -----
+    The quaternions are expected to be (4,) arrays, where the real part (w) is
+    at index 0, while the imaginary parts (i, j, k) are at indices 1, 2, 3
+    respectively.
+
+    For example, the identity quaternion could be built by:
+        numpy.r_[1.0, 0.0, 0.0, 0.0]
+
+    Also note that the quaternions specifying the symmetries are expected in 
+    column-major order.
     """
     def _signature(q1, q2, qsym):
         pass

@@ -13,4 +13,4 @@ test: install
 	python -m pytest -v
 
 test-dev: install
-	python -m pytest -v test_xrd_transforms/test_rotate_vecs_about_axis.py
+	python -m pytest -v test_xrd_transforms/test_quat_distance.py

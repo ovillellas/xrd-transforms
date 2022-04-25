@@ -244,4 +244,6 @@ def rotate_vecs_about_axis(angle, axis, vecs):
 def quat_distance(q1, q2, qsym):
     q1 = np.ascontiguousarray(q1.flatten())
     q2 = np.ascontiguousarray(q2.flatten())
+    # C-module expects quaternions on rows... numpy based code in columns    
+    qsym = np.ascontiguousarray(qsym.T) 
     return _impl.quat_distance(q1, q2, qsym)

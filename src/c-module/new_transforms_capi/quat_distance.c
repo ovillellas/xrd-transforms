@@ -14,27 +14,23 @@ XRD_CFUNCTION double
 quat_distance(size_t nsym, double * q1, double * q2, double * qsym)
 {
     size_t i;
-    double q0, q0_max = 0.0, dist = 0.0;
-    double *q2s;
-
-    if ( NULL == (q2s = (double *)malloc(4*nsym*sizeof(double))) ) {
-        printf("malloc failed\n");
-        return(-1);
-    }
-
-    /* For each symmetry in qsym compute its inner product with q2 */
-    for (i=0; i<nsym; i++) {
-        q2s[4*i+0] = q2[0]*qsym[4*i+0] - q2[1]*qsym[4*i+1] - q2[2]*qsym[4*i+2] - q2[3]*qsym[4*i+3];
-        q2s[4*i+1] = q2[1]*qsym[4*i+0] + q2[0]*qsym[4*i+1] - q2[3]*qsym[4*i+2] + q2[2]*qsym[4*i+3];
-        q2s[4*i+2] = q2[2]*qsym[4*i+0] + q2[3]*qsym[4*i+1] + q2[0]*qsym[4*i+2] - q2[1]*qsym[4*i+3];
-        q2s[4*i+3] = q2[3]*qsym[4*i+0] - q2[2]*qsym[4*i+1] + q2[1]*qsym[4*i+2] + q2[0]*qsym[4*i+3];
-    }
+    double q0_max = 0.0, dist = 0.0;
 
     /* For each symmetric equivalent q2 compute its inner product with inv(q1) */
     for (i=0; i<nsym; i++) {
-        q0 = q1[0]*q2s[4*i+0] + q1[1]*q2s[4*i+1] + q1[2]*q2s[4*i+2] + q1[3]*q2s[4*i+3];
-        if ( fabs(q0) > q0_max ) {
-            q0_max = fabs(q0);
+        double *qs = qsym + 4*i;
+        double q2s[4], abs_q0;
+        
+        q2s[0] = q2[0]*qs[0] - q2[1]*qs[1] - q2[2]*qs[2] - q2[3]*qs[3];
+        q2s[1] = q2[1]*qs[0] + q2[0]*qs[1] - q2[3]*qs[2] + q2[2]*qs[3];
+        q2s[2] = q2[2]*qs[0] + q2[3]*qs[1] + q2[0]*qs[2] - q2[1]*qs[3];
+        q2s[3] = q2[3]*qs[0] - q2[2]*qs[1] + q2[1]*qs[2] + q2[0]*qs[3];
+        
+        
+        abs_q0 = fabs(q1[0]*q2s[0] + q1[1]*q2s[1] + q1[2]*q2s[2] + q1[3]*q2s[3]);
+        if (abs_q0 > q0_max)
+        {
+            q0_max = abs_q0;
         }
     }
 
@@ -46,9 +42,8 @@ quat_distance(size_t nsym, double * q1, double * q2, double * qsym)
     else
         dist = NAN;
 
-    free(q2s);
 
-    return(dist);
+    return dist;
 }
 
 
@@ -59,6 +54,7 @@ quat_distance(size_t nsym, double * q1, double * q2, double * qsym)
 
 #    include <Python.h>
 #    include <numpy/arrayobject.h>
+#    include "ndargs_helper.h"
 #  endif /* XRD_SINGLE_COMPILE_UNIT */
 
 XRD_PYTHON_WRAPPER const char *docstring_quat_distance =
@@ -68,42 +64,25 @@ XRD_PYTHON_WRAPPER const char *docstring_quat_distance =
 XRD_PYTHON_WRAPPER PyObject *
 python_quat_distance(PyObject * self, PyObject * args)
 {
-    PyArrayObject *q1, *q2, *qsym;
-    double *q1Ptr, *q2Ptr, *qsymPtr;
-    int dq1, dq2, dqsym;
-    int nq1, nq2, nqsym, nsym;
+    nah_array q1 = { NULL, "q1", NAH_TYPE_DP_FP, { 4 }};
+    nah_array q2 = { NULL, "q2", NAH_TYPE_DP_FP, { 4 }};
+    nah_array qsym = { NULL, "qsym", NAH_TYPE_DP_FP, { 4, NAH_DIM_ANY }};
     double dist = 0.0;
 
     /* Parse arguments */
-    if ( !PyArg_ParseTuple(args,"OOO", &q1,&q2,&qsym)) return(NULL);
-    if ( q1 == NULL || q2 == NULL || qsym == NULL ) return(NULL);
-
-    /* Verify shape of input arrays */
-    dq1   = PyArray_NDIM(q1);
-    dq2   = PyArray_NDIM(q2);
-    dqsym = PyArray_NDIM(qsym);
-    assert( dq1 == 1 && dq2 == 1 && dqsym == 2 );
-
-    /* Verify dimensions of input arrays */
-    nq1   = PyArray_DIMS(q1)[0];
-    nq2   = PyArray_DIMS(q2)[0];
-    nqsym = PyArray_DIMS(qsym)[0];
-    nsym  = PyArray_DIMS(qsym)[1];
-    assert( nq1 == 4 && nq2 == 4 && nqsym == 4 );
-
-    /* Grab pointers to the various data arrays */
-    q1Ptr   = (double*)PyArray_DATA(q1);
-    q2Ptr   = (double*)PyArray_DATA(q2);
-    qsymPtr = (double*)PyArray_DATA(qsym);
+    if (!PyArg_ParseTuple(args,"O&O&O&",
+                          nah_array_converter, &q1,
+                          nah_array_converter, &q2,
+                          nah_array_converter, &qsym))
+        return NULL;
 
     /* Call the actual function */
-    dist = quat_distance(nsym,q1Ptr,q2Ptr,qsymPtr);
-    if (dist < 0) {
-        PyErr_SetString(PyExc_RuntimeError, "Could not allocate memory");
-        return NULL;
-    }
+    dist = quat_distance(PyArray_DIM(qsym.pyarray, 0),
+                         PyArray_DATA(q1.pyarray),
+                         PyArray_DATA(q2.pyarray),
+                         PyArray_DATA(qsym.pyarray));
     
-    return(PyFloat_FromDouble(dist));
+    return PyFloat_FromDouble(dist);
 }
 
 

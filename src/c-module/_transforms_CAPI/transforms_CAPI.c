@@ -1042,8 +1042,8 @@ static PyObject * quat_distance(PyObject * self, PyObject * args)
   /* Verify dimensions of input arrays */
   nq1   = PyArray_DIMS(q1)[0];
   nq2   = PyArray_DIMS(q2)[0];
-  nqsym = PyArray_DIMS(qsym)[0];
-  nsym  = PyArray_DIMS(qsym)[1];
+  nqsym = PyArray_DIMS(qsym)[1];
+  nsym  = PyArray_DIMS(qsym)[0];
   assert( nq1 == 4 && nq2 == 4 && nqsym == 4 );
 
   /* Grab pointers to the various data arrays */
