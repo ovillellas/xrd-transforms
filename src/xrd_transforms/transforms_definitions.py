@@ -30,6 +30,10 @@ API = (
     "xy_to_gvec",
     "solve_omega",
 
+    "gvec_to_rays",
+    "rays_to_xy_planar",
+    "rays_to_xy_cylindrical",
+    
     "angular_difference",
     "map_angle",
     "row_norm",
@@ -121,8 +125,7 @@ class DEF_angles_to_dvec(DEF_Func):
 
 
 class DEF_gvec_to_xy(DEF_Func):
-    """
-    Takes a concatenated list of reciprocal lattice vectors components in the
+    """Takes a concatenated list of reciprocal lattice vectors components in the
     CRYSTAL FRAME to the specified detector-relative frame, subject to the
     following:
 
@@ -148,7 +151,8 @@ class DEF_gvec_to_xy(DEF_Func):
     tvec_s : array_like
         The (3, ) translation vector connecting LAB FRAME to SAMPLE FRAME
     tvec_c : array_like
-        The (3, ) translation vector connecting SAMPLE FRAME to CRYSTAL FRAME
+        The ([M,] 3, ) translation vector(s) connecting SAMPLE FRAME to
+        CRYSTAL FRAME
     beam_vec : array_like, optional
         The (3, ) incident beam propagation vector components in the LAB FRAME;
         the default is [0, 0, -1], which is the standard setting.
@@ -166,10 +170,11 @@ class DEF_gvec_to_xy(DEF_Func):
     Returns
     -------
     array_like
-        The (n, 2) array of [x, y] diffracted beam intersections for each of
-        the n input G-vectors in the DETECTOR FRAME (all Z_d coordinates are 0
-        and excluded).  For each input G-vector that cannot satisfy a Bragg
-        condition or intersect the detector plane, [NaN, Nan] is returned.
+        The ([M, ]N, 2) array of [x, y] diffracted beam intersections for each
+        of the N input G-vectors in the DETECTOR FRAME (all Z_d coordinates are
+        0 and excluded) and for each of the M candidate positions. For each
+        input G-vector that cannot satisfy a Bragg condition or intersect the
+        detector plane, [NaN, Nan] is returned.
 
     Raises
     ------
@@ -181,7 +186,10 @@ class DEF_gvec_to_xy(DEF_Func):
 
     Notes
     -----
-
+        Previously only a single candidate position was allowed. This is in fact
+        a vectored version of the previous API function. It is backwards
+        compatible, as passing single tvec_c is supported and has the same
+        result.
     """
     def _signature(gvec_c,
                    rmat_d, rmat_s, rmat_c,
@@ -336,6 +344,62 @@ class DEF_solve_omega(DEF_Func):
     """
     def _signature(gvecs, chi, rmat_c, wavelength,
                    bmat=None, vmat_inv=None, rmat_b=None):
+        pass
+
+
+class DEF_gvec_to_rays(DEF_Func):
+    """Takes a concatenated list of reciprocal lattice vectors components in the
+    CRYSTAL FRAME and generates associated diffraction rays, ready to be tested
+    agains detectors.
+
+    Parameters
+    ----------
+    gvec_c : array_like
+        (N, 3) G-vector components in the CRYSTAL FRAME.
+    rmat_s : array_like
+        The ([N,] 3, 3) COB matrix taking components in the SAMPLE FRAME to the
+        LAB FRAME. It may be a single (3, 3) rotation matrix to use for all
+        gvec_c, or just one rotation matrix per gvec.
+    rmat_c : array_like
+        The (3, 3) COB matrix taking components in the
+        CRYSTAL FRAME to the SAMPLE FRAME
+    tvec_s : array_like
+        The (3, ) translation vector connecting LAB FRAME to SAMPLE FRAME
+    tvec_c : array_like
+        The ([M,] 3, ) translation vector(s) connecting SAMPLE FRAME to
+        CRYSTAL FRAME
+    beam_vec : array_like, optional
+        The (3, ) incident beam propagation vector components in the LAB FRAME;
+        the default is [0, 0, -1], which is the standard setting.
+
+    Returns
+    -------
+    (vectors, origins)
+
+    vectors : array
+        A (N,3) array of diffraction vectors in LAB FRAME. These are the ray
+        directions.
+    origins : array
+        The (M, [N,] 3) array of points acting as origins for the rays.
+
+    Depending on the problem, the origins array may have entries for each
+    different gvector. This is related to whether each gvec has an associated
+    rmat_s or not.
+
+    Raises
+    ------
+    ValueError
+        If array inputs have dimensions that do not match the description.
+    MemoryError
+        When result array fails to allocate.
+
+    Notes
+    -----
+        This function is part of the refactor of gvec_to_xy. Using the results
+        of this function with rays_to_xy_planar should have the same results as
+        gvec_to_xy.
+    """
+    def _signature(gvec_c, rmat_s, rmat_c, tvec_s, tvec_c, beam_vec=None):
         pass
 
 
