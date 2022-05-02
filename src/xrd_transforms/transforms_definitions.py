@@ -33,7 +33,7 @@ API = (
     "gvec_to_rays",
     "rays_to_xy_planar",
     "rays_to_xy_cylindrical",
-    
+
     "angular_difference",
     "map_angle",
     "row_norm",
@@ -403,6 +403,54 @@ class DEF_gvec_to_rays(DEF_Func):
         pass
 
 
+class DEF_rays_to_xy_planar(DEF_Func):
+    """Compute (x,y) coordinates of the intersection of rays with a planar
+    detector.
+
+    Parameters
+    ----------
+    vectors : array_like
+        (N, 3) array of vectors to use as ray directions.
+
+    origins : array_like
+        (M, [N, ] 3) array of points to use as ray origins.
+
+    rmat_d : array_like
+        (3, 3) COB matrix taking from DETECTOR FRAME to LAB FRAME.
+
+    tvec_d : array_like
+        (3,) position of the detector, in LAB FRAME.
+
+    Returns
+    -------
+    array_like:
+        (M, N, 2) array with the parametric (x,y) coordinates in the detector
+        plane for each (m, n) ray. An (m, n) ray is forme with the vector
+        vectors[n] and the point origins[m] if origins is (M, 3) or the point
+        origins[m,n] if origins is (M, N, 3).
+
+    Depending on the problem, the origins array may have entries for each
+    different gvector. This is related to whether each gvec has an associated
+    rmat_s or not.
+
+    Raises
+    ------
+    ValueError
+        If array inputs have dimensions that do not match the description.
+    MemoryError
+        When result array fails to allocate.
+
+    Notes
+    -----
+        This function is part of the refactor of gvec_to_xy. Using the results
+        of gvecs_to_rays with this function should return the same results as
+        gvec_to_xy.
+
+    """
+    def _signature(vectors, origins, rmat_d, tvec_d):
+        pass
+
+
 # ==============================================================================
 # UTILITY FUNCTIONS API
 # ==============================================================================
@@ -515,7 +563,7 @@ class DEF_make_binary_rmat(DEF_Func):
     Returns
     -------
     array_like
-        (3, 3) the resulting rotation matrix 
+        (3, 3) the resulting rotation matrix
     """
     def _signature(axis):
         pass
@@ -617,7 +665,7 @@ class DEF_rotate_vecs_about_axis(DEF_Func):
         rotated vectors.
 
     Notes
-    -----       
+    -----
     Operations are made one by one. The [n,] dimension, if present,
     must match for all arguments using it.
 
@@ -680,7 +728,7 @@ class DEF_quat_distance(DEF_Func):
         (4,) second quaternion for distance computation
     qsym: array_like
         (4, N) quaternions defining the N symmetries to compute distances
-    
+
     Returns
     -------
     double
@@ -695,7 +743,7 @@ class DEF_quat_distance(DEF_Func):
     For example, the identity quaternion could be built by:
         numpy.r_[1.0, 0.0, 0.0, 0.0]
 
-    Also note that the quaternions specifying the symmetries are expected in 
+    Also note that the quaternions specifying the symmetries are expected in
     column-major order.
     """
     def _signature(q1, q2, qsym):
@@ -712,7 +760,7 @@ def xf_api(f, name=None):
 
     if not api_call in API:
         raise RuntimeError("'%s' is not part of the transforms API.")
-    
+
     try:
         fn_def = globals()['DEF_'+api_call]
     except KeyError:
@@ -725,7 +773,7 @@ def xf_api(f, name=None):
     except NameError:
         # This will happen on python 3
         _string_type = str
-        
+
     try:
         if not (isinstance(fn_def.__doc__, _string_type) and
                 callable(fn_def._PRECOND) and
@@ -733,7 +781,7 @@ def xf_api(f, name=None):
                 callable(fn_def._signature)):
             raise Exception()
     except Exception:
-        # A valid definition requires a string doc, and callable _PRECOND, 
+        # A valid definition requires a string doc, and callable _PRECOND,
         # _POSTCOND and _signature.
         #
         # __doc__ will become the decorated function's documentation.
