@@ -32,7 +32,7 @@ API = (
 
     "gvec_to_rays",
     "rays_to_xy_planar",
-    "rays_to_xy_cylindrical",
+#    "rays_to_xy_cylindrical",
 
     "angular_difference",
     "map_angle",

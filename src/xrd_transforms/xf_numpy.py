@@ -504,6 +504,15 @@ def solve_omega(gvecs, chi, rmat_c, wavelength,
         return ome0.flatten(), ome1.flatten()
 
 
+@xf_api
+def gvec_to_rays(gvec_c, rmat_s, rmat_c, tvec_s, tvec_c, beam_vec=None):
+    raise NotImplementedError
+
+@xf_api
+def rays_to_xy_planar(vectors, origins, rmat_d, tvec_d):
+    raise NotImplementedError
+
+
 # =============================================================================
 # UTILITY FUNCTIONS
 # =============================================================================
