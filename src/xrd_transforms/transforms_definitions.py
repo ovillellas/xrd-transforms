@@ -135,7 +135,7 @@ class DEF_gvec_to_xy(DEF_Func):
     Parameters
     ----------
     gvec_c : array_like
-        (N, 3) G-vector components in the CRYSTAL FRAME.
+        ([N,] 3) G-vector components in the CRYSTAL FRAME.
     rmat_d : array_like
         The (3, 3) COB matrix taking components in the
         DETECTOR FRAME to the LAB FRAME
@@ -170,7 +170,7 @@ class DEF_gvec_to_xy(DEF_Func):
     Returns
     -------
     array_like
-        The ([M, ]N, 2) array of [x, y] diffracted beam intersections for each
+        The ([M, ][N, ] 2) array of [x, y] diffracted beam intersections for each
         of the N input G-vectors in the DETECTOR FRAME (all Z_d coordinates are
         0 and excluded) and for each of the M candidate positions. For each
         input G-vector that cannot satisfy a Bragg condition or intersect the
@@ -377,10 +377,10 @@ class DEF_gvec_to_rays(DEF_Func):
     (vectors, origins)
 
     vectors : array
-        A (N,3) array of diffraction vectors in LAB FRAME. These are the ray
-        directions.
+        A (N, 3) array of diffraction vectors in LAB FRAME. These are the ray
+        directions. G-vectors that won't diffract will result in NaN entries.
     origins : array
-        The (M, [N,] 3) array of points acting as origins for the rays.
+        The ([M,] [N,] 3) array of points acting as origins for the rays.
 
     Depending on the problem, the origins array may have entries for each
     different gvector. This is related to whether each gvec has an associated
