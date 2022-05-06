@@ -205,6 +205,7 @@ def _z_project(x, y):
 # diffract has code that assumes the beam direction is [0.0, 0.0, -1.0]. If this
 # changes, diffract must be changed as well.
 assert np.allclose(cnst.beam_vec, np.r_[0.0, 0.0, -1.0])
+assert np.allclose(cnst.lab_z, np.r_[0.0, 0.0, 1.0])
 def diffract(gvec, beam=None):
     """Diffract beam using gvec.
 
@@ -234,9 +235,9 @@ def diffract(gvec, beam=None):
 
     result = np.empty_like(gvec)
     if beam is None:
-        # beam is actually [0, 0, -1], we can avoid several operations.
-        z = np.r_[0.0, 0.0, 1.0]
+        z = cnst.lab_z # [0.0, 0.0, 1.0]
         for i, v in enumerate(gvec):
+            # as beam is [0, 0, -1] so dot(-beam, v) is actually v[2].
             if ztol <= v[2] <= (1.0 - ztol):
                 # can diffract, optimized diffraction for standard beam
                 result[i,:] = 2.0*v[2]*v - z
@@ -244,10 +245,10 @@ def diffract(gvec, beam=None):
                 result[i,:] = np.nan
 
     else:
-        beam = -beam # it would be so useful to have beam defined in this sense
+        minus_beam = -beam
         for i, v in enumerate(gvec):
-            if ztol <= np.dot(v, beam) <= (1.0 - ztol):
-                result[i,:] = make_binary_rmat(v) @ beam
+            if ztol <= np.dot(v, minus_beam) <= (1.0 - ztol):
+                result[i,:] = make_binary_rmat(v) @ minus_beam
             else:
                 result[i,:] = np.nan
 
