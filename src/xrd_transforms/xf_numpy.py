@@ -202,6 +202,58 @@ def _z_project(x, y):
     return np.cos(x) * np.sin(y) - np.sin(x) * np.cos(y)
 
 
+# diffract has code that assumes the beam direction is [0.0, 0.0, -1.0]. If this
+# changes, diffract must be changed as well.
+assert np.allclose(cnst.beam_vec, np.r_[0.0, 0.0, -1.0])
+def diffract(gvec, beam=None):
+    """Diffract beam using gvec.
+
+    Parameters
+    ----------
+    gvec : array_like
+        ([N,] 3) G-vectors to diffract against in the same frame as the beam
+
+    beam : array_like or None
+        (3,) beam vector to diffract. If None [0,0,1] will be used.
+
+    Returns
+    -------
+    array
+        ([N,] 3) diffraction vectors. NaNs will be used in results for G-vectors
+        that can't diffract.
+
+    Notes
+    -----
+    All input vectors are assumed normalized.
+    """
+    assert gvec.ndim < 3
+    ztol = cnst.epsf
+    onedimensional = gvec.ndim == 1
+    if (onedimensional):
+        gvec = gvec[np.newaxis,...]
+
+    result = np.empty_like(gvec)
+    if beam is None:
+        # beam is actually [0, 0, -1], we can avoid several operations.
+        z = np.r_[0.0, 0.0, 1.0]
+        for i, v in enumerate(gvec):
+            if ztol <= v[2] <= (1.0 - ztol):
+                # can diffract, optimized diffraction for standard beam
+                result[i,:] = 2.0*v[2]*v - z
+            else:
+                result[i,:] = np.nan
+
+    else:
+        beam = -beam # it would be so useful to have beam defined in this sense
+        for i, v in enumerate(gvec):
+            if ztol <= np.dot(v, beam) <= (1.0 - ztol):
+                result[i,:] = make_binary_rmat(v) @ beam
+            else:
+                result[i,:] = np.nan
+
+    return np.squeeze(result, axis=0) if onedimensional else result
+
+
 # =============================================================================
 # MAIN FUNCTIONS
 # =============================================================================
@@ -506,7 +558,91 @@ def solve_omega(gvecs, chi, rmat_c, wavelength,
 
 @xf_api
 def gvec_to_rays(gvec_c, rmat_s, rmat_c, tvec_s, tvec_c, beam_vec=None):
-    raise NotImplementedError
+    # The problem is well defined when gvec_c is ([N,] 3,), rmat_s is ([N,] 3, 3)
+    # and tvec_c is ([M,] 3,). Note that N in rmat_s may be ommitted even when
+    # there is an N in gvec_c. That means rmat_s is broadcast for all gvec_c.
+    if gvec_c.ndim not in (1, 2) or gvec_c.shape[-1] != 3:
+        raise ValueError("'gvec_c' does not match expected dimensions")
+
+    if rmat_s.ndim not in (2, 3) or gvec_c.shape[-2:] != (3, 3):
+        raise ValueError("'rmat_s' does not match expected dimensions")
+
+    if rmat_c.shape != (3, 3):
+        raise ValueError("'rmat_c' does not match expected dimensions")
+
+    if tvec_s.shape != (3,):
+        raise ValueError("'tvec_s' does not match expected dimensions")
+
+    if tvec_c.ndim not in (1, 2) or gvec_c.shape[-1] != 3:
+        raise ValueError("'tvec_c' does not match expected dimensions")
+
+    if beam_vec is not None and beam_vec.shape != (3,):
+        raise ValueError("'beam_vec' does not match expected dimensions")
+
+    M = None if tvec_c.ndim == 1 else tvec_c.shape[0]
+    N = None if gvec_c.ndim == 1 else gvec_c.shape[0]
+
+    if rmat_s.ndim == 3 and rmat_s[0] != N:
+        raise ValueError("'gvec_c' and 'rmat_s' mismatching dimensions")
+
+    bhat_l = unit_vector(beam_vec.flatten()) if beam_vec is not None else cnst.beam_vec
+    ztol = cnst.epsf
+
+    result_dtype = np.result_type(gvec_c, rmat_s, rmat_c, tvec_s, tvec_c)
+    if N is None:
+        # only 1 gvec: one vector and as many origins as
+        vectors = np.empty((3,), dtype=result_dtype)
+        if M is None:
+            origins = np.empty((3,), dtype=result_dtype)
+        else:
+            origins = np.empty((M,3), dtype=result_dtype)
+    else:
+        # several gvec
+        vectors = np.empty((N,3), dtype=result_dtype)
+        if rmat_s.ndim == 2:
+            # when rmat_s is broadcast, as many origin points as voxels
+            origins = np.empty((3,) if M is None else (M, 3), dtype=result_dtype)
+        else:
+            # for an rmat_s per gvec, as many origin points as voxels x gvec are
+            # needed
+            origins = np.empty((N, 3) if M is None else (M, N, 3),
+                               dtype=result_dtype)
+
+    ## compute origins
+    # origins for a single element would be:
+    # origin = tvec_s + rmat_s x tvec_c.
+    if rmat_s.ndim == 2 or tvec_c.ndim == 2:
+        # when a single tvec_c or a single rmat_s is used, matmul fits our
+        # purpose perfectly
+        np.matmul(rmat_s, tvec_c.T, out=origins)
+    else:
+        # when multiple tvec_c and multiple rmat_s, things have to be arranged
+        # so that results are ordered in the right way.
+        np.matmul(rmat_s, tvec_c[:,np.newaxis,:,np.newaxis],
+                  out=origins[..., np.newaxis])
+    origins += tvec_s
+
+    ## compute diffractions.
+    # gvec_c -> gvec_s -> gvec_l. vectors = diffract(gvec_l, beam).
+    # 1. Put gvecs in LAB frame
+    if rmat_s.ndim == 2:
+        # note: rmat_s @ rmat_c is evaluated first, which is the most efficient
+        #       way when there is a single rmat_s (unless N is *very* small).
+        gvec_l = rmat_s @ rmat_c @ gvec_c.T
+    else:
+        # In this case, in order of rmat_s be applied properly, a dimension will
+        # be added to the result of rmat_c x gvec_c.T. This way, the dimensions
+        # for that operand will be (N, 3, 1) (column vectors of gvec_s) which
+        # will "matmul" properly with (N,3,3). So (N,3,3) x (N, 3, 1) will
+        # result in (N, 3, 1). The last dimension of the result will need to be
+        # dropped.
+        gvec_l = rmat_s @ (rmat_c @ gvec_c.T)[..., np.newaxis]
+        gvec_l = np.squeeze(gvec_l, axis=-1)
+
+    # diffract
+    vectors = diffract(gvec_l, bhat_l)
+
+    return vectors, origins
 
 @xf_api
 def rays_to_xy_planar(vectors, origins, rmat_d, tvec_d):
@@ -787,7 +923,7 @@ def rotate_vecs_about_axis(angle, axis, vecs):
     assert vecs.shape[0] == 3 and vecs.ndim == 2
     assert angle.shape[0] == 1 or angle.shape[0] == vecs.shape[-1]
     assert axis.shape == (3,1) or axis.shape == vecs.shape
-    
+
     # nvecs = vecs.shape[1]  # assume column vecs
 
     # quaternion components
