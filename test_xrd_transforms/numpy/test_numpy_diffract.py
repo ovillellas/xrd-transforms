@@ -18,7 +18,6 @@ from xrd_transforms import xf_numpy
 Experiment = namedtuple('Experiment', ['gvecs'])
 
 
-
 @pytest.fixture(scope='module')
 def experiment():
     '''Note this fixture is data is actually extracted from some test runs.
@@ -45,6 +44,49 @@ def experiment():
         )
 
 
+##############################################################################
+# Unit tests dealing with correct arguments
+##############################################################################
+def test_args_gvec():
+    # single dimension but not 3, fail
+    with assert_raises(ValueError):
+        xf_numpy.diffract(np.zeros((2,)))
+
+    # 2 dimensions but inner is 4, fail
+    with assert_raises(ValueError):
+        xf_numpy.diffract(np.zeros((4, 4)))
+
+    # Too many dimensions even if the inner is ok, fail
+    with assert_raises(ValueError):
+        xf_numpy.diffract(np.zeros((2, 4, 3)))
+
+    # Too many dimensions and the inner is not 3, fail
+    with assert_raises(ValueError):
+        xf_numpy.diffract(np.zeros((2, 3, 4)))
+
+
+def test_args_beam():
+    gvecs = np.zeros((2,3)) # just some valid gvecs
+    sample_beam = np.r_[0.0, 0.0, -1.0] # a valid beam
+    xf_numpy.diffract(gvecs) # no beam is ok
+    xf_numpy.diffract(gvecs, None) # explicit None arg is ok
+    xf_numpy.diffract(gvecs, beam=None) # kw explicit None is ok
+    xf_numpy.diffract(gvecs, sample_beam) # explicit beam is ok
+    xf_numpy.diffract(gvecs, beam=sample_beam) # kw explicit beam is ok
+
+    with assert_raises(ValueError):
+        xf_numpy.diffract(gvecs, beam=np.r_[0.0, 1.0]) # invalid inner dim
+
+    with assert_raises(ValueError):
+        xf_numpy.diffract(gvecs, beam=np.zeros((2,3))) # only a single beam supported
+
+    with assert_raises(ValueError):
+        xf_numpy.diffract(gvecs, beam=sample_beam[2]) # scalar not a valid beam
+
+
+##############################################################################
+# Unit tests dealing with functionality
+##############################################################################
 def test_vectorization_no_beam(experiment):
     '''check that vectorized works as many calls to single'''
     vector_result = xf_numpy.diffract(experiment.gvecs)
