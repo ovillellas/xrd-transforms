@@ -227,7 +227,12 @@ def diffract(gvec, beam=None):
     -----
     All input vectors are assumed normalized.
     """
-    assert gvec.ndim < 3
+    if gvec.ndim > 2 or gvec.shape[-1] != 3:
+        raise ValueError("'gvec' does not match expected dimensions")
+
+    if beam is not None and beam.shape != (3,):
+        raise ValueError("'beam' does not match expected dimensions")
+
     ztol = cnst.epsf
     onedimensional = gvec.ndim == 1
     if (onedimensional):
