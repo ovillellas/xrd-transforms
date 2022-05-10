@@ -570,7 +570,7 @@ def gvec_to_rays(gvec_c, rmat_s, rmat_c, tvec_s, tvec_c, beam_vec=None):
     if gvec_c.ndim not in (1, 2) or gvec_c.shape[-1] != 3:
         raise ValueError("'gvec_c' does not match expected dimensions")
 
-    if rmat_s.ndim not in (2, 3) or gvec_c.shape[-2:] != (3, 3):
+    if rmat_s.ndim not in (2, 3) or rmat_s.shape[-2:] != (3, 3):
         raise ValueError("'rmat_s' does not match expected dimensions")
 
     if rmat_c.shape != (3, 3):
@@ -588,7 +588,7 @@ def gvec_to_rays(gvec_c, rmat_s, rmat_c, tvec_s, tvec_c, beam_vec=None):
     M = None if tvec_c.ndim == 1 else tvec_c.shape[0]
     N = None if gvec_c.ndim == 1 else gvec_c.shape[0]
 
-    if rmat_s.ndim == 3 and rmat_s[0] != N:
+    if rmat_s.ndim == 3 and len(rmat_s) != N:
         raise ValueError("'gvec_c' and 'rmat_s' mismatching dimensions")
 
     bhat_l = unit_vector(beam_vec.flatten()) if beam_vec is not None else cnst.beam_vec
@@ -617,15 +617,21 @@ def gvec_to_rays(gvec_c, rmat_s, rmat_c, tvec_s, tvec_c, beam_vec=None):
     ## compute origins
     # origins for a single element would be:
     # origin = tvec_s + rmat_s x tvec_c.
-    if rmat_s.ndim == 2 or tvec_c.ndim == 2:
-        # when a single tvec_c or a single rmat_s is used, matmul fits our
-        # purpose perfectly
-        np.matmul(rmat_s, tvec_c.T, out=origins)
-    else:
-        # when multiple tvec_c and multiple rmat_s, things have to be arranged
-        # so that results are ordered in the right way.
-        np.matmul(rmat_s, tvec_c[:,np.newaxis,:,np.newaxis],
-                  out=origins[..., np.newaxis])
+    if rmat_s.ndim == 2:
+        # the trick here is that if there is moer than one tvec_c, matmul expects
+        # the different vectors as columns (and will write the result vectors in
+        # columns. By using the transpose in tvec_c input vectors are arranged
+        # by columns, and by using transpose in the input the results are written
+        # as expected (as rows instead of columns)
+        np.matmul(rmat_s, tvec_c.T, out=origins.T)
+    else: # multiple rmat_s
+        if tvec_c.ndim == 1:
+            np.matmul(rmat_s, tvec_c, out=origins)
+        else:
+            # when multiple tvec_c and multiple rmat_s, things have to be arranged
+            # so that results are ordered in the right way.
+            np.matmul(rmat_s, tvec_c[:,np.newaxis,:,np.newaxis],
+                      out=origins[..., np.newaxis])
     origins += tvec_s
 
     ## compute diffractions.
@@ -635,6 +641,7 @@ def gvec_to_rays(gvec_c, rmat_s, rmat_c, tvec_s, tvec_c, beam_vec=None):
         # note: rmat_s @ rmat_c is evaluated first, which is the most efficient
         #       way when there is a single rmat_s (unless N is *very* small).
         gvec_l = rmat_s @ rmat_c @ gvec_c.T
+        gvec_l = gvec_l.T
     else:
         # In this case, in order of rmat_s be applied properly, a dimension will
         # be added to the result of rmat_c x gvec_c.T. This way, the dimensions
@@ -642,7 +649,7 @@ def gvec_to_rays(gvec_c, rmat_s, rmat_c, tvec_s, tvec_c, beam_vec=None):
         # will "matmul" properly with (N,3,3). So (N,3,3) x (N, 3, 1) will
         # result in (N, 3, 1). The last dimension of the result will need to be
         # dropped.
-        gvec_l = rmat_s @ (rmat_c @ gvec_c.T)[..., np.newaxis]
+        gvec_l = rmat_s @ (rmat_c @ gvec_c.T).T[..., np.newaxis]
         gvec_l = np.squeeze(gvec_l, axis=-1)
 
     # diffract
