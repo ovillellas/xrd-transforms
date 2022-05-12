@@ -585,8 +585,8 @@ def gvec_to_rays(gvec_c, rmat_s, rmat_c, tvec_s, tvec_c, beam_vec=None):
     if beam_vec is not None and beam_vec.shape != (3,):
         raise ValueError("'beam_vec' does not match expected dimensions")
 
-    M = None if tvec_c.ndim == 1 else tvec_c.shape[0]
-    N = None if gvec_c.ndim == 1 else gvec_c.shape[0]
+    M = None if tvec_c.ndim == 1 else len(tvec_c)
+    N = None if gvec_c.ndim == 1 else len(gvec_c)
 
     if rmat_s.ndim == 3 and len(rmat_s) != N:
         raise ValueError("'gvec_c' and 'rmat_s' mismatching dimensions")
