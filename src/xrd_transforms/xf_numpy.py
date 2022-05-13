@@ -657,9 +657,52 @@ def gvec_to_rays(gvec_c, rmat_s, rmat_c, tvec_s, tvec_c, beam_vec=None):
 
     return vectors, origins
 
+
 @xf_api
-def rays_to_xy_planar(vectors, origins, rmat_d, tvec_d):
-    raise NotImplementedError
+def rays_to_xy_planar(vectors, origins, rmat_d, tvec_d, origin_per_vector=False):
+    base_origin_dims = 2 if origin_per_vector and vectors.ndim > 1 else 1
+    N = None if vectors.ndim == 1 else len(vectors)
+    M = None if origins.ndim == base_origin_dims else len(origins)
+    expected_vectors_shape = (3,) if N is None else (N,3)
+
+    if origin_per_vector:
+        if N is None:
+            expected_origins_shape = (3,) if M is None else (M, 3)
+        else:
+            expected_origins_shape = (N, 3) if M is None else (M, N, 3)
+    else:
+        expected_origins_shape = (3,) if M is None else (M, 3)
+
+    if vectors.shape != expected_vectors_shape:
+        raise ValueError("'vectors' does not match expected dimensions")
+
+    if origins.shape != expected_origins_shape:
+        raise ValueError("'origins' does not match expected dimensions")
+
+    # offsets would be the offsets that need to be applied in order to move
+    # a point in LAB frame into DETECTOR frame once they are already rotated.
+    # offsets[2] happens to be the D element in the plane formula when taking
+    # the Z column vector of rmat_d as the plane normal
+    offsets = -(tvec_d @ rmat_d)
+    if not origin_per_vector:
+        if M is not None:
+            for m_i in range(M):
+                # pos_in_d will actually be x_base, y_base *and* num, being
+                # num the numerator for the ray-plane intersection. x_base
+                # and y_base will be useful to compute the positions
+                pos_in_d = origins[m_i]@rmat_d.T + offsets # vector 3
+                vect_in_d = vectors@rmat_d.T # vectorized for N
+                t = pos_in_d[2]/vect_in_d[:,2]
+                t[t<0.0] = np.nan
+                result = pos_in_d[0:2] - t*vec_in_d[:, 0:2]
+        else:
+            pos_in_d = origins@rmat_d.T + offsets # vector 3
+            vect_in_d = vectors@rmat_d.T # vectorized for N
+            t = pos_in_d[2]/vect_in_d[:,2]
+            t[t<0.0] = np.nan
+            result = pos_in_d[0:2] - t*vec_in_d[:, 0:2]
+
+    return result
 
 
 # =============================================================================

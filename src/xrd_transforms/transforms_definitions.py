@@ -413,7 +413,7 @@ class DEF_rays_to_xy_planar(DEF_Func):
         (N, 3) array of vectors to use as ray directions.
 
     origins : array_like
-        (M, [N, ] 3) array of points to use as ray origins.
+        ([M,] [N, ] 3) array of points to use as ray origins.
 
     rmat_d : array_like
         (3, 3) COB matrix taking from DETECTOR FRAME to LAB FRAME.
@@ -421,6 +421,10 @@ class DEF_rays_to_xy_planar(DEF_Func):
     tvec_d : array_like
         (3,) position of the detector, in LAB FRAME.
 
+    origin_per_vector : boolean
+        If True, there will be an 'N' dimension in the origin points. That is,
+        each vector will have its own origin point. If False, no 'N' dimensions
+        are present, so a single origin point will be shared by the vectors.
     Returns
     -------
     array_like:
@@ -446,8 +450,14 @@ class DEF_rays_to_xy_planar(DEF_Func):
         of gvecs_to_rays with this function should return the same results as
         gvec_to_xy.
 
+        The 'origin_per_vector' is required to disambiguate the case of having
+        a (X, 3) vector array and an (X, 3) origin array, that could either mean
+        "N=X, M not present, one origin per vector" or "N=X, M=X, reuse points
+        for the vectors". 'origin_per_vector' basically says that the origins
+        array has shape ([M,], N, 3) if there is an N.
+
     """
-    def _signature(vectors, origins, rmat_d, tvec_d):
+    def _signature(vectors, origins, rmat_d, tvec_d, origin_per_vector=False):
         pass
 
 
