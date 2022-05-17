@@ -661,8 +661,8 @@ def gvec_to_rays(gvec_c, rmat_s, rmat_c, tvec_s, tvec_c, beam_vec=None):
 @xf_api
 def rays_to_xy_planar(vectors, origins, rmat_d, tvec_d, origin_per_vector=False):
     base_origin_dims = 2 if origin_per_vector and vectors.ndim > 1 else 1
-    N = None if vectors.ndim == 1 else len(vectors)
-    M = None if origins.ndim == base_origin_dims else len(origins)
+    N = None if vectors.ndim <= 1 else len(vectors)
+    M = None if origins.ndim <= base_origin_dims else len(origins)
     expected_vectors_shape = (3,) if N is None else (N,3)
 
     if origin_per_vector:
@@ -678,6 +678,12 @@ def rays_to_xy_planar(vectors, origins, rmat_d, tvec_d, origin_per_vector=False)
 
     if origins.shape != expected_origins_shape:
         raise ValueError("'origins' does not match expected dimensions")
+
+    if rmat_d.shape != (3,3):
+        raise ValueError("'rmat_d' does not match expected dimensions")
+
+    if tvec_d.shape != (3,):
+        raise ValueError("'tvec_d' does not match expected dimensions")
 
     result_shape = tuple() if M is None else (M,)
     result_shape += (2,) if N is None else (N,2)
