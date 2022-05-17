@@ -8,7 +8,7 @@ import pytest
 
 import numpy as np
 from numpy.testing import assert_allclose, assert_raises
-from common import function_implementations, convert_axis_angle_to_rmat
+from common import function_implementations
 
 # these are used in some test
 from xrd_transforms import unit_vector

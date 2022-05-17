@@ -679,28 +679,60 @@ def rays_to_xy_planar(vectors, origins, rmat_d, tvec_d, origin_per_vector=False)
     if origins.shape != expected_origins_shape:
         raise ValueError("'origins' does not match expected dimensions")
 
+    result_shape = tuple() if M is None else (M,)
+    result_shape += (2,) if N is None else (N,2)
+    result = np.empty_like(vectors, shape=result_shape)
+
     # offsets would be the offsets that need to be applied in order to move
     # a point in LAB frame into DETECTOR frame once they are already rotated.
     # offsets[2] happens to be the D element in the plane formula when taking
     # the Z column vector of rmat_d as the plane normal
     offsets = -(tvec_d @ rmat_d)
-    if not origin_per_vector:
-        if M is not None:
-            for m_i in range(M):
+
+    # In the intersection code, advantage is taken from the IEEE754 divide
+    # behavior generating NAN for divide by 0. Code is written so that those
+    # NAN are propagated.
+    with np.errstate(divide='ignore', invalid='ignore'):
+        if N is None or not origin_per_vector:
+            if M is not None:
+                vect_in_d = vectors@rmat_d.T # vectorized for N
+                for m_i in range(M):
+                    # pos_in_d will actually be x_base, y_base *and* num, being
+                    # num the numerator for the ray-plane intersection. x_base
+                    # and y_base will be useful to compute the positions
+                    pos_in_d = origins[m_i]@rmat_d.T + offsets # vector 3
+                    t = pos_in_d[2]/vect_in_d[...,2]
+                    if t.ndim:
+                        t[t<0.0] = np.nan
+                    else:
+                        t = np.nan if t<0.0 else t
+                    result[m_i,...] = pos_in_d[0:2] - t*vect_in_d[..., 0:2]
+            else:
+                pos_in_d = origins@rmat_d.T + offsets # vector 3
+                vect_in_d = vectors@rmat_d.T # vectorized for N
+                t = pos_in_d[2]/vect_in_d[...,2]
+                if t.ndim:
+                    t[t<0.0] = np.nan
+                else:
+                    t = np.nan if t<0.0 else t
+                result[...] = pos_in_d[0:2] - t*vect_in_d[..., 0:2]
+        else: # origin per vector... and there are several vectors!
+            all_vect_in_d = vectors@rmat_d.T # vectorized for N
+            for n_i in range(N):
+                # In this case it makes more sense to vectorize on M
                 # pos_in_d will actually be x_base, y_base *and* num, being
                 # num the numerator for the ray-plane intersection. x_base
                 # and y_base will be useful to compute the positions
-                pos_in_d = origins[m_i]@rmat_d.T + offsets # vector 3
-                vect_in_d = vectors@rmat_d.T # vectorized for N
-                t = pos_in_d[2]/vect_in_d[:,2]
-                t[t<0.0] = np.nan
-                result = pos_in_d[0:2] - t*vec_in_d[:, 0:2]
-        else:
-            pos_in_d = origins@rmat_d.T + offsets # vector 3
-            vect_in_d = vectors@rmat_d.T # vectorized for N
-            t = pos_in_d[2]/vect_in_d[:,2]
-            t[t<0.0] = np.nan
-            result = pos_in_d[0:2] - t*vec_in_d[:, 0:2]
+                vect_in_d = all_vect_in_d if all_vect_in_d.ndim == 1 else all_vect_in_d[n_i]
+                pos_in_d = origins[...,n_i,:]@rmat_d.T + offsets # vector 3
+                t = pos_in_d[...,2]/vect_in_d[2]
+                if t.ndim:
+                    t[t<0.0] = np.nan
+                else:
+                    t = np.nan if t<0.0 else t
+                t = np.expand_dims(t, axis=-1)
+                vect_in_d = np.expand_dims(vect_in_d, axis=0)
+                result[..., n_i, :] = pos_in_d[...,0:2] - t*vect_in_d[...,0:2]
 
     return result
 
