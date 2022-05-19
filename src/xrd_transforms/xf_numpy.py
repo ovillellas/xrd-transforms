@@ -712,6 +712,7 @@ def rays_to_xy_planar(vectors, origins, rmat_d, tvec_d, origin_per_vector=False)
                         t[t<0.0] = np.nan
                     else:
                         t = np.nan if t<0.0 else t
+                    t = np.expand_dims(t, axis=-1)
                     result[m_i,...] = pos_in_d[0:2] - t*vect_in_d[..., 0:2]
             else:
                 pos_in_d = origins@rmat_d.T + offsets # vector 3
@@ -721,6 +722,8 @@ def rays_to_xy_planar(vectors, origins, rmat_d, tvec_d, origin_per_vector=False)
                     t[t<0.0] = np.nan
                 else:
                     t = np.nan if t<0.0 else t
+                t = np.expand_dims(t, axis=-1)
+                vect_in_d = np.expand_dims(vect_in_d, axis=0)
                 result[...] = pos_in_d[0:2] - t*vect_in_d[..., 0:2]
         else: # origin per vector... and there are several vectors!
             all_vect_in_d = vectors@rmat_d.T # vectorized for N

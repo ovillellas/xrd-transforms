@@ -15,6 +15,23 @@ from common import function_implementations
 all_impls = pytest.mark.parametrize('rays_to_xy_planar_impl, module_name',
                                     function_implementations('rays_to_xy_planar'))
 
+Experiment = namedtuple('Experiment', ['vectors', 'origins', 'rmat_d', 'tvec_d'])
+
+@pytest.fixture(scope='module')
+def experiment():
+    '''a very simple setup, but should yield unique rays for all combinations'''
+    yield Experiment(
+        vectors = np.array([[0.0, 0.0, 1.0],
+                            [0.0, 0.0, -1.0]]),
+        origins = np.array([[[0.0, 0.0, 0.0], [0.0, 0.1, 0.0]],
+                            [[0.1, 0.0, 0.0], [0.1, 0.1, 0.0]],
+                            [[-0.1, 0.0, 0.0], [-0.1, 0.1, 0.0]],
+                            [[0.0, 0.0, 0.1], [0.0, 0.1, 0.1]]]),
+        rmat_d = np.array([[1.0, 0.0, 0.0],
+                           [0.0, 1.0, 0.0],
+                           [0.0, 0.0, -1.0]]),
+        tvec_d = np.r_[0.0,0.0,3.0]
+        )
 
 ##############################################################################
 # Test arguments and result dimensions.
@@ -164,3 +181,108 @@ def test_args_tvec_d(rays_to_xy_planar_impl, module_name):
     # too many dimensions
     with assert_raises(ValueError):
         checker(((3,), (3,), (3,3), (3,3)), origin_per_vector=False)
+
+##############################################################################
+# Vectorization testing
+# remember this is potentially a NxM problem, with N being the number of
+# vectors for the rays, and M the number of voxels.
+##############################################################################
+@all_impls
+def test_N_vectorization(experiment, rays_to_xy_planar_impl, module_name):
+    # test for origin_per_vector=False
+    vectors = experiment.vectors
+    origins = experiment.origins[0,0,:] # just use one of the vectors
+    rmat_d = experiment.rmat_d
+    tvec_d = experiment.tvec_d
+
+    vectorized_results = rays_to_xy_planar_impl(vectors, origins,
+                                                rmat_d, tvec_d,
+                                                origin_per_vector=False)
+
+    iterated_results = np.empty_like(vectorized_results)
+    for i in range(len(vectors)):
+        iterated_results[i,:] = rays_to_xy_planar_impl(vectors[i], origins,
+                                                       rmat_d, tvec_d,
+                                                       origin_per_vector=False)
+    assert_allclose(vectorized_results, iterated_results)
+
+
+@all_impls
+def test_N_vectorization_opv(experiment, rays_to_xy_planar_impl, module_name):
+    # test for origin_per_vector=True
+    vectors = experiment.vectors
+    origins = experiment.origins[0,...]
+    rmat_d = experiment.rmat_d
+    tvec_d = experiment.tvec_d
+
+    vectorized_results = rays_to_xy_planar_impl(vectors, origins,
+                                                rmat_d, tvec_d,
+                                                origin_per_vector=True)
+
+    iterated_results = np.empty_like(vectorized_results)
+    for i in range(len(vectors)):
+        iterated_results[i,:] = rays_to_xy_planar_impl(vectors[i], origins[i],
+                                                       rmat_d, tvec_d,
+                                                       origin_per_vector=False)
+    assert_allclose(vectorized_results, iterated_results)
+
+
+@all_impls
+def test_M_vectorization(experiment, rays_to_xy_planar_impl, module_name):
+    vectors = experiment.vectors[0]
+    origins = experiment.origins[:,0,:] # just use one of the vectors
+    rmat_d = experiment.rmat_d
+    tvec_d = experiment.tvec_d
+
+    vectorized_results = rays_to_xy_planar_impl(vectors, origins,
+                                                rmat_d, tvec_d,
+                                                origin_per_vector=False)
+
+    iterated_results = np.empty_like(vectorized_results)
+    for i in range(len(vectors)):
+        iterated_results[i,:] = rays_to_xy_planar_impl(vectors, origins[i],
+                                                       rmat_d, tvec_d,
+                                                       origin_per_vector=False)
+    assert_allclose(vectorized_results, iterated_results)
+
+
+@all_impls
+def test_MN_vectorization(experiment, rays_to_xy_planar_impl, module_name):
+    # for origins_per_vector=False
+    vectors = experiment.vectors
+    origins = experiment.origins[:,0,:] # just use one of the vectors
+    rmat_d = experiment.rmat_d
+    tvec_d = experiment.tvec_d
+
+    vectorized_results = rays_to_xy_planar_impl(vectors, origins,
+                                                rmat_d, tvec_d,
+                                                origin_per_vector=False)
+
+    iterated_results = np.empty_like(vectorized_results)
+    for n_i in range(len(vectors)):
+        for m_i in range(len(origins)):
+            iterated_results[m_i, n_i,:] = rays_to_xy_planar_impl(vectors[n_i], origins[m_i],
+                                                                  rmat_d, tvec_d,
+                                                                  origin_per_vector=False)
+    assert_allclose(vectorized_results, iterated_results)
+
+
+@all_impls
+def test_MN_vectorization_opv(experiment, rays_to_xy_planar_impl, module_name):
+    # for origins_per_vector=True
+    vectors = experiment.vectors
+    origins = experiment.origins # just use one of the vectors
+    rmat_d = experiment.rmat_d
+    tvec_d = experiment.tvec_d
+
+    vectorized_results = rays_to_xy_planar_impl(vectors, origins,
+                                                rmat_d, tvec_d,
+                                                origin_per_vector=True)
+
+    iterated_results = np.empty_like(vectorized_results)
+    for n_i in range(len(vectors)):
+        for m_i in range(len(origins)):
+            iterated_results[m_i, n_i,:] = rays_to_xy_planar_impl(vectors[n_i], origins[m_i, n_i],
+                                                                  rmat_d, tvec_d,
+                                                                  origin_per_vector=False)
+    assert_allclose(vectorized_results, iterated_results)
