@@ -15,7 +15,8 @@ from common import function_implementations
 all_impls = pytest.mark.parametrize('rays_to_xy_planar_impl, module_name',
                                     function_implementations('rays_to_xy_planar'))
 
-Experiment = namedtuple('Experiment', ['vectors', 'origins', 'rmat_d', 'tvec_d'])
+Experiment = namedtuple('Experiment', ['vectors', 'origins', 'rmat_d', 'tvec_d',
+                                       'expected'])
 
 @pytest.fixture(scope='module')
 def experiment():
@@ -26,11 +27,15 @@ def experiment():
         origins = np.array([[[0.0, 0.0, 0.0], [0.0, 0.1, 0.0]],
                             [[0.1, 0.0, 0.0], [0.1, 0.1, 0.0]],
                             [[-0.1, 0.0, 0.0], [-0.1, 0.1, 0.0]],
-                            [[0.0, 0.0, 0.1], [0.0, 0.1, 0.1]]]),
+                            [[0.2, 0.0, 0.0], [0.2, 0.1, 0.0]]]),
         rmat_d = np.array([[1.0, 0.0, 0.0],
                            [0.0, 1.0, 0.0],
-                           [0.0, 0.0, -1.0]]),
-        tvec_d = np.r_[0.0,0.0,3.0]
+                           [0.0, 0.0, 1.0]]),
+        tvec_d = np.r_[0.0,0.0,3.0],
+        expected = np.array([[[0.0, 0.0], [np.nan, np.nan]],
+                             [[0.1, 0.0], [np.nan, np.nan]],
+                             [[-0.1, 0.0], [np.nan, np.nan]],
+                             [[0.2, 0.0], [np.nan, np.nan]]])
         )
 
 ##############################################################################
@@ -239,7 +244,7 @@ def test_M_vectorization(experiment, rays_to_xy_planar_impl, module_name):
                                                 origin_per_vector=False)
 
     iterated_results = np.empty_like(vectorized_results)
-    for i in range(len(vectors)):
+    for i in range(len(origins)):
         iterated_results[i,:] = rays_to_xy_planar_impl(vectors, origins[i],
                                                        rmat_d, tvec_d,
                                                        origin_per_vector=False)
@@ -271,7 +276,7 @@ def test_MN_vectorization(experiment, rays_to_xy_planar_impl, module_name):
 def test_MN_vectorization_opv(experiment, rays_to_xy_planar_impl, module_name):
     # for origins_per_vector=True
     vectors = experiment.vectors
-    origins = experiment.origins # just use one of the vectors
+    origins = experiment.origins
     rmat_d = experiment.rmat_d
     tvec_d = experiment.tvec_d
 
@@ -286,3 +291,23 @@ def test_MN_vectorization_opv(experiment, rays_to_xy_planar_impl, module_name):
                                                                   rmat_d, tvec_d,
                                                                   origin_per_vector=False)
     assert_allclose(vectorized_results, iterated_results)
+
+##############################################################################
+# Minimal functional testing
+# For some trivial values. More thorough tests would be needed.
+# As vectorization is supposed to work at this point if vectorization tests
+# pass, the tests can make use of vectorization or just tests single cases
+# with discrete calls.
+##############################################################################
+
+@all_impls
+def test_sample_cases(experiment, rays_to_xy_planar_impl, module_name):
+    vectors = experiment.vectors
+    origins = experiment.origins
+    rmat_d = experiment.rmat_d
+    tvec_d = experiment.tvec_d
+
+    results = rays_to_xy_planar_impl(vectors, origins,
+                                     rmat_d, tvec_d,
+                                     origin_per_vector=True)
+    assert_allclose(results, experiment.expected)

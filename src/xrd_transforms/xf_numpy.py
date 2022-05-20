@@ -709,9 +709,9 @@ def rays_to_xy_planar(vectors, origins, rmat_d, tvec_d, origin_per_vector=False)
                     pos_in_d = origins[m_i]@rmat_d.T + offsets # vector 3
                     t = pos_in_d[2]/vect_in_d[...,2]
                     if t.ndim:
-                        t[t<0.0] = np.nan
+                        t[t>0.0] = np.nan
                     else:
-                        t = np.nan if t<0.0 else t
+                        t = np.nan if t>0.0 else t
                     t = np.expand_dims(t, axis=-1)
                     result[m_i,...] = pos_in_d[0:2] - t*vect_in_d[..., 0:2]
             else:
@@ -719,9 +719,9 @@ def rays_to_xy_planar(vectors, origins, rmat_d, tvec_d, origin_per_vector=False)
                 vect_in_d = vectors@rmat_d.T # vectorized for N
                 t = pos_in_d[2]/vect_in_d[...,2]
                 if t.ndim:
-                    t[t<0.0] = np.nan
+                    t[t>0.0] = np.nan
                 else:
-                    t = np.nan if t<0.0 else t
+                    t = np.nan if t>0.0 else t
                 t = np.expand_dims(t, axis=-1)
                 vect_in_d = np.expand_dims(vect_in_d, axis=0)
                 result[...] = pos_in_d[0:2] - t*vect_in_d[..., 0:2]
@@ -736,9 +736,9 @@ def rays_to_xy_planar(vectors, origins, rmat_d, tvec_d, origin_per_vector=False)
                 pos_in_d = origins[...,n_i,:]@rmat_d.T + offsets # vector 3
                 t = pos_in_d[...,2]/vect_in_d[2]
                 if t.ndim:
-                    t[t<0.0] = np.nan
+                    t[t>0.0] = np.nan
                 else:
-                    t = np.nan if t<0.0 else t
+                    t = np.nan if t>0.0 else t
                 t = np.expand_dims(t, axis=-1)
                 vect_in_d = np.expand_dims(vect_in_d, axis=0)
                 result[..., n_i, :] = pos_in_d[...,0:2] - t*vect_in_d[...,0:2]
