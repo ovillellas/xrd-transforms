@@ -1,4 +1,4 @@
-# tests for capi implementation of make_rmat_of_expmap.
+# tests for capi implementation of make_binary_rmat
 #
 # these tests are more about making sure the function generates the
 # right exceptions when incorrect arguments are used

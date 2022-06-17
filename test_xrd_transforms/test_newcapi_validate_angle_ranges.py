@@ -1,4 +1,4 @@
-# tests for capi implementation of xy_to_gvec.
+# tests for capi implementation of validate_angle_ranges
 #
 # these tests are more about making sure the function generates the
 # right exceptions when incorrect arguments are used
