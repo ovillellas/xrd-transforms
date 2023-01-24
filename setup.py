@@ -40,30 +40,6 @@ import numpy
 
 from setuptools import Command, Extension, find_packages, setup
 
-
-################################################################################
-# versioneer is used to base the generate the version using the tag name in git.
-# Just use a tag named xrd-transforms-v<major>.<minor>.<release>[.dev<devrel>]
-################################################################################
-import versioneer
-
-cmdclass = versioneer.get_cmdclass()
-
-versioneer.VCS = 'git'
-versioneer.style = 'default'
-versioneer.versionfile_source = 'src/xrd_transforms/_version.py'
-versioneer.versionfile_build = 'xrd_transforms/_version.py'
-versioneer.tag_prefix = 'xrd-transforms-v'
-versioneer.parentdir_prefix = 'xrd-transforms-v'
-
-
-################################################################################
-# Dependencies
-################################################################################
-base_dependencies = [
-    'numpy',
-    ]
-
 # this are not required to run the packages, but are included to document its
 # potential usage
 optional_dependencies = [
@@ -85,45 +61,10 @@ new_transforms_capi_extension = Extension(
     include_dirs=[numpy.get_include()],
     )
 
-_version = versioneer.get_version()
-
 setup(
-    name = 'xrd_transforms',
-    version = versioneer.get_version(True),
-    license = 'LGPLv2',
-
-    description = 'xrd transform utilities',
-    long_description = open('README.md').read(),
-    long_description_content_type = 'text/markdown',
-
-    author = 'The HEXRD Development Team',
-    author_email = 'praxes@googlegroups.com',
-    url = 'http://xrd_transforms.readthedocs.org',
-
     ext_modules = [transforms_capi_extension,
                    new_transforms_capi_extension],
-    packages = find_packages(where='src/', ),
-    package_dir = { '': 'src'},
 
     include_package_data = True,
-    zip_safe = False,
-    
-    classifiers = [
-        'Intended Audience :: Developers',
-        'Intended Audience :: Science/Research',
-        'License :: OSI Approved :: GNU Lesser General Public License v2 (LGPLv2)',
-        'Programming Language :: Python',
-        'Programming Language :: Python :: 3',
-        'Topic :: Scientific/Engineering',
-        ],
-
-    keywords=[
-    ],
-
-    install_requires = base_dependencies,
-
-    entry_points = {
-    },
-    
-    cmdclass = cmdclass,
+    zip_safe = False,    
 )

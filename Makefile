@@ -3,7 +3,7 @@
 .PHONY : install clean test
 
 install :
-	python setup.py install
+	python3 -m pip install .
 
 clean :
 	rm -rf __pycache__ build *.egg-info
